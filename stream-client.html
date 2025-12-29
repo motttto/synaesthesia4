@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Synästhesie Output</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: rgb(0, 0, 0);
+            overflow: hidden;
+        }
+        #frame {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            background: rgb(0, 0, 0);
+        }
+        /* Drag-Bar für rahmenloses Fenster - unsichtbar */
+        #dragBar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            -webkit-app-region: drag;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body>
+    <div id="dragBar"></div>
+    <img id="frame" alt="">
+    
+    <script>
+        const frame = document.getElementById('frame');
+        
+        let ws = null;
+        let reconnectTimer = null;
+        
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            try {
+                ws = new WebSocket(wsUrl);
+            } catch (err) {
+                scheduleReconnect();
+                return;
+            }
+            
+            ws.onopen = () => {
+                if (reconnectTimer) {
+                    clearInterval(reconnectTimer);
+                    reconnectTimer = null;
+                }
+            };
+            
+            ws.onmessage = (event) => {
+                if (typeof event.data === 'string' && event.data.startsWith('data:')) {
+                    frame.src = event.data;
+                }
+            };
+            
+            ws.onclose = () => {
+                scheduleReconnect();
+            };
+            
+            ws.onerror = () => {};
+        }
+        
+        function scheduleReconnect() {
+            if (reconnectTimer) return;
+            reconnectTimer = setInterval(() => {
+                if (ws) {
+                    try { ws.close(); } catch(e) {}
+                    ws = null;
+                }
+                connect();
+            }, 1000);
+        }
+        
+        connect();
+    </script>
+</body>
+</html>
