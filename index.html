@@ -118,6 +118,29 @@
             transform: rotate(-90deg);
         }
         
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .visibility-btn {
+            font-size: 12px;
+            opacity: 0.3;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            filter: grayscale(100%);
+        }
+        
+        .visibility-btn:hover {
+            opacity: 0.7;
+        }
+        
+        .visibility-btn.active {
+            opacity: 1;
+            filter: grayscale(0%);
+        }
+        
         .panel.minimized .panel-content {
             display: none;
         }
@@ -1218,14 +1241,14 @@
         
         <!-- Modell-Kontrolle -->
         <div class="panel" id="panel3DModell">
-            <h3><span>3D Modell</span><span class="minimize-btn">▼</span></h3>
+            <h3>
+                <span>3D Modell</span>
+                <span class="header-icons">
+                    <span class="visibility-btn active" id="modelVisibilityBtn" title="Modell anzeigen/ausblenden">👁</span>
+                    <span class="minimize-btn">▼</span>
+                </span>
+            </h3>
             <div class="panel-content">
-            <div class="interaction-mode" style="margin-top:0; padding-top:0; border-top:none;">
-                <label>
-                    <input type="checkbox" id="modelVisible" checked>
-                    Modell anzeigen
-                </label>
-            </div>
             <div class="model-set-row">
                 <select id="modelSetSelect">
                     <option value="">Standard (Legacy)</option>
@@ -5328,11 +5351,13 @@
         });
         
         // Model Visibility Toggle
-        const modelVisibleCheckbox = document.getElementById('modelVisible');
+        const modelVisibilityBtn = document.getElementById('modelVisibilityBtn');
         let modelVisible = true;
         
-        modelVisibleCheckbox.addEventListener('change', (e) => {
-            modelVisible = e.target.checked;
+        modelVisibilityBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Verhindert Panel-Minimierung
+            modelVisible = !modelVisible;
+            modelVisibilityBtn.classList.toggle('active', modelVisible);
             if (currentModel) {
                 currentModel.visible = modelVisible;
             }
