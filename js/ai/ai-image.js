@@ -34,6 +34,13 @@ export const aiState = {
     bufferMode: false,
     crossfadeEnabled: false,
     
+    // Buffer Settings
+    bufferSize: 24,
+    bufferLoop: false,
+    bufferShuffle: false,
+    bufferImages: [],
+    bufferIndex: 0,
+    
     // Prompt
     currentPrompt: '',
     lastGeneratedPrompt: '',
@@ -52,6 +59,8 @@ export const aiState = {
 let previewEl = null;
 let statusEl = null;
 let bufferStatusEl = null;
+let bufferSettingsEl = null;
+let bufferThumbsEl = null;
 let currentInputEl = null;
 let promptInputEl = null;
 let overlayCanvas = null;
@@ -157,6 +166,7 @@ export async function generateImage(prompt) {
             aiState.currentImage = imageUrl;
             
             displayImage(imageUrl);
+            addToBuffer(imageUrl);
             return imageUrl;
         }
         
@@ -452,6 +462,67 @@ function updateResolutionDisplay() {
 }
 
 /**
+ * Aktualisiert Buffer-Status Anzeige
+ */
+function updateBufferStatus() {
+    const statusEl = document.getElementById('aiBufferStatus');
+    if (statusEl) {
+        statusEl.textContent = `Buffer: ${aiState.bufferImages.length}/${aiState.bufferSize}`;
+    }
+    updateBufferThumbnails();
+}
+
+/**
+ * Aktualisiert Buffer-Thumbnails
+ */
+function updateBufferThumbnails() {
+    if (!bufferThumbsEl) return;
+    
+    bufferThumbsEl.innerHTML = '';
+    bufferThumbsEl.style.display = aiState.bufferMode ? 'flex' : 'none';
+    bufferThumbsEl.style.flexWrap = 'wrap';
+    bufferThumbsEl.style.gap = '2px';
+    
+    aiState.bufferImages.forEach((imgUrl, index) => {
+        const thumb = document.createElement('div');
+        thumb.style.cssText = `
+            width: 24px;
+            height: 24px;
+            background-image: url(${imgUrl});
+            background-size: cover;
+            background-position: center;
+            border-radius: 2px;
+            cursor: pointer;
+            border: 1px solid ${index === aiState.bufferIndex ? '#4af' : '#333'};
+        `;
+        thumb.title = `Image ${index + 1}`;
+        thumb.addEventListener('click', () => {
+            aiState.bufferIndex = index;
+            displayImage(imgUrl);
+            updateBufferThumbnails();
+        });
+        bufferThumbsEl.appendChild(thumb);
+    });
+}
+
+/**
+ * Fügt Bild zum Buffer hinzu
+ */
+function addToBuffer(imageUrl) {
+    if (!aiState.bufferMode) return;
+    
+    aiState.bufferImages.push(imageUrl);
+    
+    // Buffer-Größe begrenzen
+    while (aiState.bufferImages.length > aiState.bufferSize) {
+        aiState.bufferImages.shift();
+    }
+    
+    aiState.bufferIndex = aiState.bufferImages.length - 1;
+    updateBufferStatus();
+}
+
+/**
  * Aktualisiert Overlay-Sichtbarkeit
  */
 function updateOverlayVisibility() {
@@ -557,6 +628,8 @@ export function initAiUI() {
     previewEl = document.getElementById('aiImagePreview');
     statusEl = document.getElementById('localSdStatus');
     bufferStatusEl = document.getElementById('aiModelBufferStatus');
+    bufferSettingsEl = document.getElementById('aiBufferSettings');
+    bufferThumbsEl = document.getElementById('aiBufferThumbs');
     currentInputEl = document.getElementById('aiCurrentInput');
     promptInputEl = document.getElementById('aiPromptInput');
     overlayCanvas = document.getElementById('aiOverlayCanvas');
@@ -647,6 +720,41 @@ export function initAiUI() {
     if (bufferCheckbox) {
         bufferCheckbox.addEventListener('change', (e) => {
             setBufferMode(e.target.checked);
+            // Show/hide buffer settings panel
+            if (bufferSettingsEl) {
+                bufferSettingsEl.style.display = e.target.checked ? 'block' : 'none';
+            }
+            if (bufferThumbsEl) {
+                bufferThumbsEl.style.display = e.target.checked ? 'flex' : 'none';
+            }
+            updateBufferStatus();
+        });
+    }
+    
+    // Buffer Size Slider
+    const bufferSizeSlider = document.getElementById('aiBufferSize');
+    const bufferSizeValue = document.getElementById('aiBufferSizeValue');
+    if (bufferSizeSlider) {
+        bufferSizeSlider.addEventListener('input', (e) => {
+            aiState.bufferSize = parseInt(e.target.value);
+            if (bufferSizeValue) bufferSizeValue.textContent = aiState.bufferSize;
+            updateBufferStatus();
+        });
+    }
+    
+    // Buffer Loop Checkbox
+    const bufferLoopCheckbox = document.getElementById('aiBufferLoop');
+    if (bufferLoopCheckbox) {
+        bufferLoopCheckbox.addEventListener('change', (e) => {
+            aiState.bufferLoop = e.target.checked;
+        });
+    }
+    
+    // Buffer Shuffle Checkbox
+    const bufferShuffleCheckbox = document.getElementById('aiBufferShuffle');
+    if (bufferShuffleCheckbox) {
+        bufferShuffleCheckbox.addEventListener('change', (e) => {
+            aiState.bufferShuffle = e.target.checked;
         });
     }
     

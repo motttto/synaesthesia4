@@ -374,6 +374,30 @@
                     </label>
                 </div>
                 
+                <!-- Buffer Settings (erscheint wenn Buffer Mode aktiv) -->
+                <div id="aiBufferSettings" style="display:none; padding: 4px; background: #111; border-radius: 3px; margin-top: 4px;">
+                    <div class="slider-group" style="margin-bottom: 4px;">
+                        <label>Buffer Size</label>
+                        <div class="slider-row">
+                            <input type="range" id="aiBufferSize" min="5" max="50" value="24">
+                            <span id="aiBufferSizeValue">24</span>
+                        </div>
+                    </div>
+                    <div class="interaction-mode">
+                        <label>
+                            <input type="checkbox" id="aiBufferLoop">
+                            Loop Buffer
+                        </label>
+                    </div>
+                    <div class="interaction-mode">
+                        <label>
+                            <input type="checkbox" id="aiBufferShuffle">
+                            Shuffle
+                        </label>
+                    </div>
+                    <div id="aiBufferStatus" style="font-size: 8px; color: #4f4; margin-top: 4px;">Buffer: 0/24</div>
+                </div>
+                
                 <!-- Prompt Input -->
                 <div style="display: flex; gap: 4px; margin-top: 4px;">
                     <input type="text" id="aiPromptInput" placeholder="Enter prompt..." style="flex: 1; padding: 4px 6px; font-size: 9px; background: #222; border: 1px solid #444; border-radius: 3px; color: #fff;">
@@ -403,6 +427,9 @@
                 <div id="aiImagePreview">
                     <span class="placeholder">No Image</span>
                 </div>
+                
+                <!-- Buffer Thumbnails -->
+                <div id="aiBufferThumbs" style="display: none; margin-top: 4px;"></div>
                 
                 <!-- Crossfade -->
                 <div class="interaction-mode" style="margin-top: 6px;">
