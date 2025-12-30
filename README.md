@@ -1,121 +1,272 @@
-# Synästhesie - Electron App
+# 🎨 Synästhesie
 
-Visualisiert harmonische Intervalle mit Farben und 3D-Modellen basierend auf synästhetischen Wahrnehmungen.
+**Real-time audio-to-visual synesthesia visualization combining music theory with 3D graphics.**
 
-## Installation & Entwicklung
+Transform sound into mesmerizing visuals using two distinct synesthetic color systems, 3D model morphing, and live performance streaming capabilities.
 
-### Voraussetzungen
-- Node.js (v18 oder höher)
-- npm
-- **Für NDI:** NDI SDK / NDI Tools von [ndi.tv/tools](https://ndi.tv/tools/)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Electron](https://img.shields.io/badge/electron-28.0-47848F.svg)
+![Three.js](https://img.shields.io/badge/three.js-0.160-black.svg)
 
-### Setup
+---
+
+## ✨ Features
+
+### 🎵 Audio Analysis
+- **Polyphonic pitch detection** with 6 algorithms (HPS, YIN, Autocorrelation, Cepstrum, Peak Detection)
+- **Real-time BPM detection** with beat-synchronized effects
+- **Percussion classification** (Kick, Snare, Hi-Hat, Tom, Crash)
+- **3-band parametric EQ** with master gain control
+- **MIDI input support** with built-in synthesizer
+
+### 🎨 Dual Color Systems
+
+| Clara's System | Alex's System |
+|----------------|---------------|
+| Absolute note colors | Relative chord colors |
+| C=Red, D=Yellow, E=Green... | Minor=Blue, Major=Red/Orange |
+| Sharp/flat variants | Scale degree colors (I-VII) |
+| Applied to 3D models | Applied to background/vignette |
+
+### 🌀 3D Visualization
+- **25 interval-based 3D models** (Prime to Double Octave)
+- **Smooth morphing transitions** between shapes
+- **Multiple model sets** with automatic detection
+- **GPU-accelerated particle systems**
+
+### ⚡ Effects
+- Glitch, Pulse, Edge Detection, Explode
+- Particle trails with afterglow
+- Audio-reactive scaling and FOV
+- Depth of field blur
+
+### 📡 Live Performance
+- **WebSocket streaming** (1920×1080 @ 30fps)
+- Compatible with MadMapper, OBS, Resolume
+- Stream client for projection mapping
+
+### 🤖 AI Image Generation (Experimental)
+- **Local ComfyUI integration** for Stable Diffusion
+- Multiple aspect ratios (1:1, 16:9, 4:3, 9:16, 21:9, Fit Screen)
+- Speech-to-prompt with auto-generation
+- SD 1.5, SDXL, and Turbo model support
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+
+### Installation
 
 ```bash
-# In den Projektordner wechseln
-cd synaesthesia_4
+# Clone the repository
+git clone https://github.com/yourusername/synaesthesia.git
+cd synaesthesia
 
-# Dependencies installieren
+# Install dependencies
 npm install
 
-# Native Module für Electron rebuilden (für NDI)
-npx electron-rebuild
-
-# App starten (Entwicklungsmodus)
+# Start the Electron app
 npm start
+
+# Or run in browser (development)
+npm run web
+# Open http://localhost:3000
 ```
 
-### App kompilieren
+### Build for Distribution
 
 ```bash
-# Für macOS
-npm run build:mac
-
-# Für Windows
-npm run build:win
-
-# Für Linux
-npm run build:linux
-
-# Für alle Plattformen
-npm run build
+npm run build:mac    # macOS (.dmg, .zip)
+npm run build:win    # Windows (.exe)
+npm run build:linux  # Linux (.AppImage, .deb)
 ```
 
-Die kompilierten Apps findest du im `dist/` Ordner.
+---
 
-## NDI Output
+## 🎮 Usage
 
-Die App kann das visuelle Output als NDI-Stream ins Netzwerk senden. Damit kannst du es in OBS, vMix, Resolume oder anderen NDI-fähigen Programmen empfangen.
+### Basic Workflow
 
-### NDI Setup
+1. **Select audio source** from the dropdown
+2. **Click Start** to begin audio capture
+3. **Choose color schema**: Clara, Alex, or Both
+4. **Play music** — watch the visuals respond!
 
-1. **NDI Tools installieren:** Lade die kostenlosen NDI Tools von [ndi.tv/tools](https://ndi.tv/tools/) herunter
-2. **App starten**
-3. **Menü → NDI Output → NDI Stream starten**
+### Keyboard Shortcuts
 
-### NDI Optionen (im Menü)
+| Key | Action |
+|-----|--------|
+| `F` | Toggle fullscreen |
+| `ESC` | Exit fullscreen |
 
-- **Stream starten/stoppen** - Aktiviert/deaktiviert den NDI-Output
-- **Auflösung** - Full HD (1920x1080), HD (1280x720), 4K, Square (1080x1080), Vertical (1080x1920)
-- **Framerate** - 60, 30, 25 oder 24 fps
-- **Stream-Name** - Der Name, unter dem der Stream im Netzwerk erscheint
+### Panel Overview
 
-### NDI in anderen Apps empfangen
+| Panel | Function |
+|-------|----------|
+| **Audio Source** | Select microphone or audio interface |
+| **Color Schema** | Switch between Clara/Alex systems |
+| **3D Model** | Scale, morphing, model set selection |
+| **Effects** | Visual effects with intensity controls |
+| **AI Image** | Stable Diffusion integration |
+| **Master** | Gain control and level meter |
+| **Beat** | BPM display and beat effects |
+| **Camera** | FOV, orbit, blur controls |
 
-- **OBS Studio:** Quelle hinzufügen → NDI Source → "Synästhesie" auswählen
-- **vMix:** Add Input → NDI → "Synästhesie"
-- **Resolume:** Sources → NDI → "Synästhesie"
+---
 
-## Berechtigungen
+## 🏗️ Architecture
 
-### macOS
-Die App benötigt Mikrofonzugriff. Beim ersten Start wirst du um Erlaubnis gefragt.
+```
+synaesthesia/
+├── js/
+│   ├── main.js              # Entry point & animation loop
+│   ├── config/
+│   │   ├── colors.js        # Clara/Alex color definitions
+│   │   └── intervals.js     # Musical interval mappings
+│   ├── core/
+│   │   ├── three-setup.js   # Scene, camera, renderer
+│   │   ├── postprocessing.js# Shaders & effects
+│   │   └── particles.js     # GPU particle system
+│   ├── models/
+│   │   └── model-manager.js # GLTF loading & morphing
+│   ├── effects/
+│   │   └── visual-effects.js# Glitch, pulse, explode
+│   ├── audio/
+│   │   ├── audio-chain.js   # EQ, gain, analyser
+│   │   ├── pitch-detector.js# Multi-algorithm detection
+│   │   ├── beat-detector.js # BPM & beat sync
+│   │   └── percussion.js    # Drum classification
+│   ├── input/
+│   │   ├── midi.js          # MIDI controller support
+│   │   └── speech.js        # Speech recognition
+│   ├── analysis/
+│   │   ├── intervals.js     # Chord analysis
+│   │   └── colors.js        # Color calculations
+│   ├── camera/
+│   │   └── controls.js      # Orbit, FOV, auto-rotate
+│   ├── stream/
+│   │   └── obs-stream.js    # WebSocket streaming
+│   └── ai/
+│       └── ai-image.js      # ComfyUI integration
+├── 3d-models/
+│   ├── set_01/              # Model set 1 (25 intervals)
+│   ├── set_02/              # Model set 2
+│   └── set_03/              # Model set 3
+├── css/
+│   └── styles.css           # UI styling
+└── index.html               # Main application
+```
 
-Falls der Zugriff verweigert wurde:
-1. Öffne Systemeinstellungen → Datenschutz & Sicherheit → Mikrofon
-2. Aktiviere Synästhesie in der Liste
+---
 
-### Windows
-Windows fragt automatisch beim ersten Zugriff auf das Mikrofon.
+## 🎹 Color Systems Explained
 
-## Features
+### Clara's Note Colors (Chromesthesia)
+Each musical note has a fixed color regardless of context:
 
-- **Audio-Analyse**: Echtzeit-Tonerkennung via Mikrofon oder Audio-Interface
-- **MIDI-Support**: Direkter MIDI-Controller-Anschluss
-- **Farbschemata**: Clara (absolute Tonfarben) & Alex (relative Akkordfarben)
-- **3D-Modelle**: Intervall-basierte Formdarstellung
-- **Effekte**: Glitch, Hologram, Pulse, Wireframe, Explode
-- **Beat Detection**: BPM-Erkennung mit visuellen Effekten
-- **NDI Output**: Stream ins Netzwerk für VJ-Software, OBS, etc.
+| Note | Color | Hex |
+|------|-------|-----|
+| C | Red | `#FF0000` |
+| D | Yellow | `#FFFF00` |
+| E | Green | `#00FF00` |
+| F | Orange | `#FFA500` |
+| G | Blue | `#0000FF` |
+| A | Gray | `#808080` |
+| B/H | Brown | `#8B4513` |
 
-## Tastenkürzel
+Sharps (♯) and flats (♭) have lighter/darker variants.
 
-- `F` - UI ein/ausblenden
-- `F11` - Vollbild
-- `ESC` - Vollbild verlassen
-- Doppelklick auf Canvas - Browser-Vollbild
+### Alex's Mode Colors (Harmonic Perception)
+Colors based on musical context and chord quality:
 
-## Troubleshooting
+- **Major** → Warm (Red/Orange)
+- **Minor** → Cool (Blue)
+- **Scale degrees I-VII** → Individual colors within chords
 
-### Kein Audio erkannt
-1. Prüfe ob das richtige Audiogerät ausgewählt ist
-2. Klicke auf "Starten"
-3. Prüfe die Mikrofonberechtigungen
+---
 
-### 3D-Modelle werden nicht angezeigt
-Die GLB-Dateien müssen im `3d-models/` Ordner liegen.
+## 📡 Streaming Setup
 
-### MIDI funktioniert nicht
-1. MIDI-Gerät vor App-Start anschließen
-2. Gerät im Dropdown auswählen
-3. "MIDI als Eingabe nutzen" aktivieren
+### For OBS / MadMapper / Resolume
 
-### NDI nicht verfügbar
-1. NDI Tools von [ndi.tv/tools](https://ndi.tv/tools/) installieren
-2. App neu starten
-3. Native Module rebuilden: `npx electron-rebuild`
+1. Start the stream server:
+   ```bash
+   node stream-server.js
+   ```
 
-### NDI Stream wird nicht empfangen
-1. Prüfe ob Sender und Empfänger im gleichen Netzwerk sind
-2. Firewall-Einstellungen prüfen (Ports 5960-5969)
-3. NDI Access Manager prüfen (in den NDI Tools enthalten)
+2. Open `stream-client.html` in a browser
+
+3. In your VJ software:
+   - Add a browser/web source
+   - URL: `http://localhost:9876`
+   - Resolution: 1920×1080
+
+---
+
+## 🤖 AI Image Setup (Optional)
+
+Requires [ComfyUI](https://github.com/comfyanonymous/ComfyUI) running locally.
+
+1. Install ComfyUI with desired checkpoints
+2. Start ComfyUI: `python main.py`
+3. In Synästhesie, the AI panel will auto-connect to `localhost:8188`
+
+### Supported Models
+- **SD 1.5**: v1-5-pruned-emaonly.safetensors
+- **SDXL**: sd_xl_base_1.0.safetensors  
+- **Turbo**: sd_turbo.safetensors
+
+---
+
+## 🔧 Configuration
+
+### Adding Custom 3D Models
+
+Create a new folder in `3d-models/` named `set_XX/` containing 25 GLB files:
+
+```
+set_04/
+├── 01_prime.glb
+├── 02_kleine_sekunde.glb
+├── 03_grosse_sekunde.glb
+...
+└── 25_doppelte_oktave.glb
+```
+
+The app automatically detects new model sets on startup.
+
+---
+
+## 🐛 Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| No audio detected | Check microphone permissions in system settings |
+| Models not loading | Verify GLB files exist in `3d-models/` |
+| MIDI not working | Connect MIDI device before launching app |
+| Speech recognition fails | Use Chrome/Chromium (Web Speech API required) |
+| ComfyUI not connecting | Ensure ComfyUI is running on port 8188 |
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- [Three.js](https://threejs.org/) — 3D graphics library
+- [Electron](https://www.electronjs.org/) — Desktop app framework
+- [ComfyUI](https://github.com/comfyanonymous/ComfyUI) — AI image generation
+
+---
+
+<p align="center">
+  <i>Visualizing the invisible connection between sound and color.</i>
+</p>
