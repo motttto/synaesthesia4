@@ -265,8 +265,15 @@
 - [x] Off / On / Overlay modes
 - [x] Preview panel
 - [x] Overlay canvas layer
-- [x] Buffer mode
 - [x] Crossfade transitions
+
+### Buffer Mode
+- [x] Collapsible settings panel (opens on activation)
+- [x] Buffer size slider (5-50 images)
+- [x] Loop buffer option
+- [x] Shuffle option
+- [x] Clickable thumbnail gallery
+- [x] Buffer status display (current/max)
 
 ---
 
