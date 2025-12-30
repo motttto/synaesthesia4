@@ -21,6 +21,9 @@ export const aiState = {
     provider: 'local',  // 'local', 'mix'
     model: 'local-sd15', // 'local-sd15', 'local-sdxl', 'local-turbo'
     
+    // Resolution
+    resolution: '1:1', // 'fit', '16:9', '4:3', '3:2', '1:1', '9:16', '3:4'
+    
     // ComfyUI Connection
     comfyUrl: 'http://localhost:8188',
     connected: false,
@@ -206,8 +209,8 @@ function createWorkflow(prompt, model) {
         "5": {
             "class_type": "EmptyLatentImage",
             "inputs": {
-                "width": 512,
-                "height": 512,
+                "width": getImageDimensions(aiState.resolution, model).width,
+                "height": getImageDimensions(aiState.resolution, model).height,
                 "batch_size": 1
             }
         },
@@ -239,6 +242,59 @@ function createWorkflow(prompt, model) {
                 "images": ["8", 0]
             }
         }
+    };
+}
+
+/**
+ * Berechnet Bilddimensionen basierend auf Resolution und Model
+ */
+function getImageDimensions(resolution, model) {
+    // Basis-Größe abhängig vom Model
+    const isXL = model === 'local-sdxl';
+    const base = isXL ? 1024 : 512;
+    const baseSmall = isXL ? 768 : 384;
+    const baseLarge = isXL ? 1280 : 640;
+    
+    // Aspekt-Ratio Mappings
+    const ratios = {
+        '1:1': { width: base, height: base },
+        '16:9': { width: baseLarge, height: Math.round(baseLarge * 9 / 16) },
+        '4:3': { width: base, height: Math.round(base * 3 / 4) },
+        '3:2': { width: baseLarge, height: Math.round(baseLarge * 2 / 3) },
+        '9:16': { width: Math.round(baseLarge * 9 / 16), height: baseLarge },
+        '3:4': { width: Math.round(base * 3 / 4), height: base },
+        '2:3': { width: Math.round(baseLarge * 2 / 3), height: baseLarge },
+        '21:9': { width: baseLarge, height: Math.round(baseLarge * 9 / 21) }
+    };
+    
+    // Fit Screen: berechne aus aktueller Fenstergröße
+    if (resolution === 'fit') {
+        const screenRatio = window.innerWidth / window.innerHeight;
+        let width, height;
+        
+        if (screenRatio >= 1) {
+            // Landscape
+            width = base;
+            height = Math.round(base / screenRatio);
+        } else {
+            // Portrait
+            height = base;
+            width = Math.round(base * screenRatio);
+        }
+        
+        // Auf 64er-Grid runden (wichtig für SD)
+        width = Math.round(width / 64) * 64;
+        height = Math.round(height / 64) * 64;
+        
+        return { width: Math.max(256, width), height: Math.max(256, height) };
+    }
+    
+    const dims = ratios[resolution] || ratios['1:1'];
+    
+    // Auf 64er-Grid runden
+    return {
+        width: Math.round(dims.width / 64) * 64,
+        height: Math.round(dims.height / 64) * 64
     };
 }
 
@@ -385,6 +441,17 @@ function crossfadeToImage(newImg, duration = 1000) {
 }
 
 /**
+ * Aktualisiert Resolution-Anzeige
+ */
+function updateResolutionDisplay() {
+    const displayEl = document.getElementById('aiResolutionDisplay');
+    if (displayEl) {
+        const dims = getImageDimensions(aiState.resolution, aiState.model);
+        displayEl.textContent = `${dims.width}×${dims.height}px`;
+    }
+}
+
+/**
  * Aktualisiert Overlay-Sichtbarkeit
  */
 function updateOverlayVisibility() {
@@ -447,6 +514,11 @@ export function setProvider(provider) {
 
 export function setModel(model) {
     aiState.model = model;
+}
+
+export function setResolution(resolution) {
+    aiState.resolution = resolution;
+    console.log(`AI Resolution set to: ${resolution}`);
 }
 
 export function setAutoGenerate(enabled) {
@@ -529,6 +601,17 @@ export function initAiUI() {
             }
             tab.classList.add('active');
             setModel(tab.dataset.model);
+            updateResolutionDisplay(); // Update da Dimensionen model-abhängig sind
+        });
+    });
+    
+    // Resolution Buttons
+    document.querySelectorAll('.ai-resolution-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.ai-resolution-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            setResolution(btn.dataset.resolution);
+            updateResolutionDisplay();
         });
     });
     
@@ -640,6 +723,9 @@ export function initAiUI() {
     // Initial connection check
     setTimeout(checkComfyConnection, 1000);
     
+    // Initial resolution display
+    updateResolutionDisplay();
+    
     console.log('AI Image UI initialized');
 }
 
@@ -661,4 +747,8 @@ export function getCurrentImage() {
 
 export function getDisplayMode() {
     return aiState.displayMode;
+}
+
+export function getResolution() {
+    return aiState.resolution;
 }
