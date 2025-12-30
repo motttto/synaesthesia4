@@ -286,6 +286,14 @@
 - [x] Collapsible panels (click header)
 - [x] Fullscreen toggle (F key)
 
+### Interval Overview Modal
+- [x] Opens via ℹ️ button in 3D Model panel
+- [x] Grid of all 25 intervals
+- [x] Synesthetic shape symbols (● ▬ ⬭ ╱)
+- [x] Name, semitones, shape description
+- [x] Hover effects and click selection
+- [x] ESC or click outside to close
+
 ### Indicators
 - [x] Level meter (real-time)
 - [x] Beat indicator (flash)
