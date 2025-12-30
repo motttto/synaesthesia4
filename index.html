@@ -96,6 +96,20 @@
                     Detect Percussion
                 </label>
             </div>
+            <div style="margin-top: 4px;">
+                <label style="font-size: 7px; color: #888;">Detection Model</label>
+                <select id="percussionPreset" style="margin-top: 2px;">
+                    <option value="standard">Standard</option>
+                    <option value="acoustic">Acoustic Kit</option>
+                    <option value="electronic">Electronic</option>
+                    <option value="live">Live/Noisy</option>
+                    <option value="sensitive">Sensitive</option>
+                    <option value="kickFocus">Kick Focus</option>
+                    <option value="hiphop">Hip-Hop/Trap</option>
+                    <option value="rock">Rock/Metal</option>
+                </select>
+            </div>
+            <div id="percussionPresetStatus" style="font-size: 7px; color: #666; margin-top: 2px; min-height: 12px;"></div>
             <div id="detectedPercussion">
                 <span style="color:#666">-</span>
             </div>
@@ -137,7 +151,13 @@
     <div id="ui-bottom">
         <!-- Color Schema -->
         <div class="panel" id="panelFarbschema">
-            <h3><span>Color Schema</span><span class="minimize-btn">▼</span></h3>
+            <h3>
+                <span>Color Schema</span>
+                <span class="header-icons">
+                    <span class="visibility-btn active" id="colorVisibilityBtn" title="Enable/Disable Colors">👁</span>
+                    <span class="minimize-btn">▼</span>
+                </span>
+            </h3>
             <div class="panel-content">
                 <div class="schema-selector">
                     <button class="schema-btn active" data-schema="clara">Clara</button>
@@ -231,6 +251,111 @@
             </div>
         </div>
         
+        <!-- Video Texture -->
+        <div class="panel" id="panelVideoTexture">
+            <h3>
+                <span>Video Texture</span>
+                <span class="header-icons">
+                    <span class="visibility-btn" id="videoVisibilityBtn" title="Enable/Disable Video Texture">👁</span>
+                    <span class="minimize-btn">▼</span>
+                </span>
+            </h3>
+            <div class="panel-content">
+                <!-- Load Videos -->
+                <div class="video-load-row">
+                    <label class="video-load-btn" title="Load Video Files">
+                        📂
+                        <input type="file" id="videoFileInput" accept="video/*" multiple style="display:none;">
+                    </label>
+                    <span id="videoStatus" style="font-size: 7px; color: #666; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📹 No video</span>
+                    <span id="videoLibraryCount" style="font-size: 7px; color: #888;">0 videos</span>
+                </div>
+                
+                <!-- Video Library Thumbnails -->
+                <div id="videoLibrary" class="video-library">
+                    <span class="video-library-empty">Drop videos here or click 📂</span>
+                </div>
+                
+                <!-- Playback Controls -->
+                <div class="video-controls">
+                    <button id="videoPrev" class="video-ctrl-btn" title="Previous">⏮</button>
+                    <button id="videoPlayPause" class="video-ctrl-btn" title="Play/Pause">▶</button>
+                    <button id="videoNext" class="video-ctrl-btn" title="Next">⏭</button>
+                    <input type="range" id="videoProgress" min="0" max="100" value="0" class="video-progress">
+                    <span id="videoTime" style="font-size: 7px; color: #888; min-width: 45px;">0:00</span>
+                </div>
+                
+                <!-- Settings Row -->
+                <div style="display: flex; gap: 8px; margin-top: 4px;">
+                    <label class="interaction-mode" style="margin: 0; color: #fff;">
+                        <input type="checkbox" id="videoLoop" checked>
+                        <span style="font-size: 8px; color: #ccc;">Loop</span>
+                    </label>
+                    <label class="interaction-mode" style="margin: 0; color: #fff;">
+                        <input type="checkbox" id="videoAutoCycle">
+                        <span style="font-size: 8px; color: #ccc;">Auto-Cycle</span>
+                    </label>
+                </div>
+                
+                <!-- Speed -->
+                <div class="slider-group">
+                    <label>Speed</label>
+                    <div class="slider-row">
+                        <input type="range" id="videoRate" min="0.25" max="2" step="0.25" value="1">
+                        <span id="videoRateValue">1.0x</span>
+                    </div>
+                </div>
+                
+                <!-- Blend Mode -->
+                <div style="margin-top: 4px;">
+                    <label style="font-size: 7px; color: #888;">Blend Mode</label>
+                    <select id="videoBlendMode" style="margin-top: 2px;">
+                        <option value="replace">Replace</option>
+                        <option value="multiply">Multiply</option>
+                        <option value="add">Add (Glow)</option>
+                        <option value="overlay">Overlay</option>
+                    </select>
+                </div>
+                
+                <!-- Blend Amount -->
+                <div class="slider-group">
+                    <label>Intensity</label>
+                    <div class="slider-row">
+                        <input type="range" id="videoBlendAmount" min="0" max="100" value="100">
+                        <span id="videoBlendValue">100%</span>
+                    </div>
+                </div>
+                
+                <!-- Displacement -->
+                <div class="slider-group">
+                    <label>Displacement</label>
+                    <div class="slider-row">
+                        <input type="range" id="videoDisplacement" min="-1000" max="1000" value="0">
+                        <span id="videoDisplacementValue">0</span>
+                    </div>
+                </div>
+                
+                <!-- Audio-Reactive Displacement -->
+                <div class="interaction-mode">
+                    <label style="color: #ccc;">
+                        <input type="checkbox" id="videoDisplacementAudio">
+                        <span style="font-size: 8px;">Audio-Reactive</span>
+                    </label>
+                </div>
+                
+                <!-- Apply to All Models -->
+                <div class="interaction-mode">
+                    <label style="color: #ccc;">
+                        <input type="checkbox" id="videoApplyToAll" checked>
+                        <span style="font-size: 8px;">Apply to All Models</span>
+                    </label>
+                </div>
+                
+                <!-- Clear Button -->
+                <button id="videoClearAll" class="reset-btn" style="margin-top: 4px; font-size: 7px;">🗑 Clear All</button>
+            </div>
+        </div>
+        
         <!-- Effects -->
         <div class="panel" id="panelEffekte">
             <h3><span>Effects</span><span class="minimize-btn">▼</span></h3>
@@ -282,6 +407,36 @@
                             <div class="effect-slider-value">Afterglow: <span id="trailsIntensityValue">70%</span></div>
                         </div>
                     </div>
+                    <div class="effect-item">
+                        <button class="effect-btn" data-effect="fractal">🌀 Fractal</button>
+                        <div class="effect-slider" id="fractalSliderContainer">
+                            <input type="range" id="fractalIntensity" min="0" max="100" value="50">
+                            <div class="effect-slider-value">Intensity: <span id="fractalIntensityValue">50%</span></div>
+                            <input type="range" id="fractalScale" min="1" max="100" value="30" style="margin-top:2px;">
+                            <div class="effect-slider-value">Scale: <span id="fractalScaleValue">30%</span></div>
+                            <input type="range" id="fractalSpeed" min="0" max="100" value="50" style="margin-top:2px;">
+                            <div class="effect-slider-value">Speed: <span id="fractalSpeedValue">50%</span></div>
+                            <input type="range" id="fractalOctaves" min="1" max="6" value="3" style="margin-top:2px;">
+                            <div class="effect-slider-value">Complexity: <span id="fractalOctavesValue">3</span></div>
+                        </div>
+                    </div>
+                    <div class="effect-item">
+                        <button class="effect-btn" data-effect="kaleidoscope">🔮 Kaleidoscope</button>
+                        <div class="effect-slider" id="kaleidoscopeSliderContainer">
+                            <input type="range" id="kaleidoscopeSegments" min="2" max="16" value="6">
+                            <div class="effect-slider-value">Segments: <span id="kaleidoscopeSegmentsValue">6</span></div>
+                            <input type="range" id="kaleidoscopeRotation" min="0" max="360" value="0" style="margin-top:2px;">
+                            <div class="effect-slider-value">Rotation: <span id="kaleidoscopeRotationValue">0°</span></div>
+                            <input type="range" id="kaleidoscopeZoom" min="50" max="200" value="100" style="margin-top:2px;">
+                            <div class="effect-slider-value">Zoom: <span id="kaleidoscopeZoomValue">100%</span></div>
+                            <label style="display:flex; align-items:center; gap:4px; margin-top:4px; font-size:8px; color:#ccc;">
+                                <input type="checkbox" id="kaleidoscopeAutoRotate">
+                                Auto-Rotate
+                            </label>
+                            <input type="range" id="kaleidoscopeSpeed" min="0" max="100" value="30" style="margin-top:2px;">
+                            <div class="effect-slider-value">Speed: <span id="kaleidoscopeSpeedValue">30%</span></div>
+                        </div>
+                    </div>
                 </div>
                 <div class="interaction-mode">
                     <label>
@@ -310,6 +465,164 @@
                     </div>
                 </div>
                 <button class="reset-btn" id="resetAllBtn" title="Reset all effects & artifacts">⚠️ Reset All</button>
+            </div>
+        </div>
+        
+        <!-- Camera Input (USB/Webcam) -->
+        <div class="panel" id="panelCameraInput">
+            <h3>
+                <span>📷 Camera Input</span>
+                <span class="header-icons">
+                    <span class="visibility-btn" id="cameraInputVisibilityBtn" title="Enable/Disable Camera">👁</span>
+                    <span class="minimize-btn">▼</span>
+                </span>
+            </h3>
+            <div class="panel-content">
+                <!-- Camera Selection -->
+                <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                    <select id="cameraInputSelect" style="flex: 1;">
+                        <option value="">-- Select Camera --</option>
+                    </select>
+                    <button id="cameraInputRefresh" class="reset-btn" style="margin: 0; padding: 4px 6px;" title="Refresh Devices">🔄</button>
+                </div>
+                <div id="cameraInputStatus" style="font-size: 7px; color: #666; margin-bottom: 4px;">⚫ Disconnected</div>
+                
+                <!-- Opacity -->
+                <div class="slider-group">
+                    <label>Camera Opacity</label>
+                    <div class="slider-row">
+                        <input type="range" id="cameraInputOpacity" min="0" max="100" value="50">
+                        <span id="cameraInputOpacityValue">50%</span>
+                    </div>
+                </div>
+                
+                <!-- Blend Mode -->
+                <div style="margin-top: 4px;">
+                    <label style="font-size: 7px; color: #888;">Blend Mode</label>
+                    <select id="cameraInputBlendMode" style="margin-top: 2px;">
+                        <option value="normal">Normal</option>
+                        <option value="overlay">Overlay</option>
+                        <option value="multiply">Multiply</option>
+                        <option value="screen">Screen</option>
+                        <option value="add">Add (Glow)</option>
+                        <option value="difference">Difference</option>
+                        <option value="hard-light">Hard Light</option>
+                        <option value="soft-light">Soft Light</option>
+                    </select>
+                </div>
+                
+                <!-- Audio-Reactive -->
+                <div class="interaction-mode" style="margin-top: 6px;">
+                    <label>
+                        <input type="checkbox" id="cameraInputAudioReactive">
+                        Audio → Opacity
+                    </label>
+                </div>
+                
+                <!-- Audio Range -->
+                <div id="cameraInputAudioRange" style="margin-top: 4px; padding: 4px; background: #111; border-radius: 3px;">
+                    <div class="slider-group" style="margin-bottom: 2px;">
+                        <label style="font-size: 7px;">Min Opacity</label>
+                        <div class="slider-row">
+                            <input type="range" id="cameraInputAudioMin" min="0" max="100" value="0">
+                            <span id="cameraInputAudioMinValue">0%</span>
+                        </div>
+                    </div>
+                    <div class="slider-group">
+                        <label style="font-size: 7px;">Max Opacity</label>
+                        <div class="slider-row">
+                            <input type="range" id="cameraInputAudioMax" min="0" max="100" value="100">
+                            <span id="cameraInputAudioMaxValue">100%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Mirror -->
+                <div class="interaction-mode" style="margin-top: 4px;">
+                    <label>
+                        <input type="checkbox" id="cameraInputMirror">
+                        Mirror
+                    </label>
+                </div>
+                
+                <!-- Use as 3D Texture -->
+                <div class="interaction-mode" style="margin-top: 4px;">
+                    <label>
+                        <input type="checkbox" id="cameraInputAsTexture">
+                        Use as 3D Texture
+                    </label>
+                </div>
+                
+                <!-- Apply to All Models -->
+                <div class="interaction-mode" style="margin-top: 2px; margin-left: 16px;">
+                    <label style="color: #ccc;">
+                        <input type="checkbox" id="cameraInputApplyToAll" checked>
+                        <span style="font-size: 8px;">Apply to All Models</span>
+                    </label>
+                </div>
+                
+                <!-- Skeleton Tracking -->
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
+                    <label style="font-size: 7px; color: #888;">🦴 Skeleton Tracking</label>
+                    <div id="skeletonStatus" style="font-size: 7px; color: #666; margin-top: 2px;">⚫ No models active</div>
+                    
+                    <!-- Model Checkboxen -->
+                    <div id="skeletonModels" style="margin-top: 4px; padding: 4px; background: #111; border-radius: 3px;">
+                        <!-- MediaPipe -->
+                        <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                            <input type="checkbox" id="skeleton-mediapipe" style="margin: 0;">
+                            <input type="color" id="skeleton-color-mediapipe" value="#00ff00" style="width: 18px; height: 14px; padding: 0; border: none;">
+                            <label for="skeleton-mediapipe" style="font-size: 8px; color: #ccc; flex: 1;">MediaPipe (33pt)</label>
+                            <span id="skeleton-status-mediapipe" style="font-size: 10px;"></span>
+                        </div>
+                        <!-- MoveNet Lightning -->
+                        <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                            <input type="checkbox" id="skeleton-movenet-lightning" style="margin: 0;">
+                            <input type="color" id="skeleton-color-movenet-lightning" value="#ff00ff" style="width: 18px; height: 14px; padding: 0; border: none;">
+                            <label for="skeleton-movenet-lightning" style="font-size: 8px; color: #ccc; flex: 1;">MoveNet Fast (17pt)</label>
+                            <span id="skeleton-status-movenet-lightning" style="font-size: 10px;"></span>
+                        </div>
+                        <!-- MoveNet Thunder -->
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <input type="checkbox" id="skeleton-movenet-thunder" style="margin: 0;">
+                            <input type="color" id="skeleton-color-movenet-thunder" value="#00ffff" style="width: 18px; height: 14px; padding: 0; border: none;">
+                            <label for="skeleton-movenet-thunder" style="font-size: 8px; color: #ccc; flex: 1;">MoveNet Accurate (17pt)</label>
+                            <span id="skeleton-status-movenet-thunder" style="font-size: 10px;"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Display Options -->
+                    <div id="skeletonOptions" style="margin-top: 4px; padding: 4px; background: #111; border-radius: 3px;">
+                        <div class="slider-group" style="margin-bottom: 4px;">
+                            <label style="font-size: 7px;">Tracking Opacity</label>
+                            <div class="slider-row">
+                                <input type="range" id="skeletonOpacity" min="0" max="100" value="100">
+                                <span id="skeletonOpacityValue" style="font-size: 8px;">100%</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <label class="interaction-mode" style="margin: 0;">
+                                <input type="checkbox" id="skeletonShowLines" checked>
+                                <span style="font-size: 8px; color: #ccc;">Lines</span>
+                            </label>
+                            <label class="interaction-mode" style="margin: 0;">
+                                <input type="checkbox" id="skeletonShowPoints" checked>
+                                <span style="font-size: 8px; color: #ccc;">Points</span>
+                            </label>
+                            <label class="interaction-mode" style="margin: 0;">
+                                <input type="checkbox" id="skeletonShowLabels">
+                                <span style="font-size: 8px; color: #ccc;">Labels</span>
+                            </label>
+                        </div>
+                        <div class="slider-group" style="margin-top: 4px;">
+                            <label style="font-size: 7px;">Line Width</label>
+                            <div class="slider-row">
+                                <input type="range" id="skeletonLineWidth" min="1" max="10" value="3">
+                                <span id="skeletonLineWidthValue" style="font-size: 8px;">3px</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -600,25 +913,43 @@
     
     <!-- Interval Overview Modal -->
     <div id="intervalModal" class="modal-overlay">
-        <div class="modal-content">
+        <div class="modal-content modal-content-wide">
             <div class="modal-header">
-                <h2>🎵 Intervall-Übersicht</h2>
+                <h2>🎵 Interval Overview</h2>
+                <div class="modal-header-controls">
+                    <label>Set:</label>
+                    <select id="intervalSetSelect" class="modal-select">
+                        <!-- Dynamically populated -->
+                    </select>
+                </div>
                 <span class="modal-close" id="intervalModalClose">✕</span>
             </div>
-            <div class="modal-body">
-                <p class="modal-description">Synästhetische Zuordnung nach Clara: Jedes musikalische Intervall hat eine charakteristische Form.</p>
-                <div id="intervalGrid" class="interval-grid">
-                    <!-- Wird dynamisch gefüllt -->
+            <div class="modal-body modal-body-split">
+                <div class="modal-left">
+                    <p class="modal-description">Clara's synesthetic mapping: Click = Preview, Double-click = Load</p>
+                    <div id="intervalGrid" class="interval-grid">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+                <div class="modal-right">
+                    <div class="preview-section">
+                        <h3 id="intervalPreviewTitle">Select an interval</h3>
+                        <div id="intervalPreviewContainer" class="preview-3d-container">
+                            <!-- 3D Renderer inserted here -->
+                        </div>
+                        <div class="preview-info">
+                            <div class="legend-compact">
+                                <span>● Point</span>
+                                <span>▬ Small</span>
+                                <span>⬭ Oval</span>
+                                <span>╱ Line</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <div class="legend">
-                    <span><strong>Formen:</strong></span>
-                    <span>● Punkt (Prime)</span>
-                    <span>▬ Klein (Sekunde)</span>
-                    <span>⬭ Oval (Terz)</span>
-                    <span>╱ Linie (größere Intervalle)</span>
-                </div>
+                <span class="hint">💡 Double-click an interval to load it into the main scene</span>
             </div>
         </div>
     </div>

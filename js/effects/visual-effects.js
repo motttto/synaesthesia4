@@ -6,7 +6,12 @@
  */
 
 import { THREE, scene, renderer } from '../core/three-setup.js';
-import { edgePass, afterimagePass, setTrailsIntensity } from '../core/postprocessing.js';
+import { 
+    edgePass, afterimagePass, setTrailsIntensity,
+    kaleidoscopePass, setKaleidoscopeEnabled, setKaleidoscopeSegments,
+    setKaleidoscopeRotation, setKaleidoscopeZoom, setKaleidoscopeAutoRotate,
+    updateKaleidoscope, kaleidoscopeState
+} from '../core/postprocessing.js';
 import { particleState, setParticlesEnabled, setParticlesIntensity, setParticlesSize } from '../core/particles.js';
 import { modelState, originalGeometries, originalMaterialColors, storeOriginalGeometry, cleanupModelMaps, cleanupScene } from '../models/model-manager.js';
 
@@ -22,7 +27,8 @@ export const effectIntensities = {
     edge: 0.5,
     explode: 0.5,
     particles: 0.5,
-    trails: 0.7
+    trails: 0.7,
+    fractal: 0.5
 };
 
 export const effectState = {
@@ -31,7 +37,11 @@ export const effectState = {
     audioScaleEnabled: false,
     audioScaleAmount: 0.3,
     effectTime: 0,
-    edgeGlow: 0.3
+    edgeGlow: 0.3,
+    // Fractal settings
+    fractalScale: 0.3,
+    fractalSpeed: 0.5,
+    fractalOctaves: 3
 };
 
 // Callback für Visuals-Refresh (wird von main.js gesetzt)
@@ -45,6 +55,119 @@ function refreshVisuals() {
     if (refreshVisualsCallback) {
         refreshVisualsCallback();
     }
+}
+
+// ============================================
+// SIMPLEX NOISE (für Fraktal-Effekt)
+// ============================================
+
+// Simplex-ähnliche 3D Noise Funktion
+const grad3 = [
+    [1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],
+    [1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],
+    [0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]
+];
+
+const perm = new Uint8Array(512);
+const permMod12 = new Uint8Array(512);
+
+// Initialisiere Permutation-Tabelle
+(function() {
+    const p = [];
+    for (let i = 0; i < 256; i++) p[i] = i;
+    for (let i = 255; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [p[i], p[j]] = [p[j], p[i]];
+    }
+    for (let i = 0; i < 512; i++) {
+        perm[i] = p[i & 255];
+        permMod12[i] = perm[i] % 12;
+    }
+})();
+
+function dot3(g, x, y, z) {
+    return g[0] * x + g[1] * y + g[2] * z;
+}
+
+function noise3D(x, y, z) {
+    const F3 = 1.0 / 3.0;
+    const G3 = 1.0 / 6.0;
+    
+    const s = (x + y + z) * F3;
+    const i = Math.floor(x + s);
+    const j = Math.floor(y + s);
+    const k = Math.floor(z + s);
+    
+    const t = (i + j + k) * G3;
+    const X0 = i - t;
+    const Y0 = j - t;
+    const Z0 = k - t;
+    const x0 = x - X0;
+    const y0 = y - Y0;
+    const z0 = z - Z0;
+    
+    let i1, j1, k1, i2, j2, k2;
+    if (x0 >= y0) {
+        if (y0 >= z0) { i1=1; j1=0; k1=0; i2=1; j2=1; k2=0; }
+        else if (x0 >= z0) { i1=1; j1=0; k1=0; i2=1; j2=0; k2=1; }
+        else { i1=0; j1=0; k1=1; i2=1; j2=0; k2=1; }
+    } else {
+        if (y0 < z0) { i1=0; j1=0; k1=1; i2=0; j2=1; k2=1; }
+        else if (x0 < z0) { i1=0; j1=1; k1=0; i2=0; j2=1; k2=1; }
+        else { i1=0; j1=1; k1=0; i2=1; j2=1; k2=0; }
+    }
+    
+    const x1 = x0 - i1 + G3;
+    const y1 = y0 - j1 + G3;
+    const z1 = z0 - k1 + G3;
+    const x2 = x0 - i2 + 2.0 * G3;
+    const y2 = y0 - j2 + 2.0 * G3;
+    const z2 = z0 - k2 + 2.0 * G3;
+    const x3 = x0 - 1.0 + 3.0 * G3;
+    const y3 = y0 - 1.0 + 3.0 * G3;
+    const z3 = z0 - 1.0 + 3.0 * G3;
+    
+    const ii = i & 255;
+    const jj = j & 255;
+    const kk = k & 255;
+    const gi0 = permMod12[ii + perm[jj + perm[kk]]];
+    const gi1 = permMod12[ii + i1 + perm[jj + j1 + perm[kk + k1]]];
+    const gi2 = permMod12[ii + i2 + perm[jj + j2 + perm[kk + k2]]];
+    const gi3 = permMod12[ii + 1 + perm[jj + 1 + perm[kk + 1]]];
+    
+    let n0, n1, n2, n3;
+    let t0 = 0.6 - x0*x0 - y0*y0 - z0*z0;
+    n0 = t0 < 0 ? 0 : (t0 *= t0, t0 * t0 * dot3(grad3[gi0], x0, y0, z0));
+    
+    let t1 = 0.6 - x1*x1 - y1*y1 - z1*z1;
+    n1 = t1 < 0 ? 0 : (t1 *= t1, t1 * t1 * dot3(grad3[gi1], x1, y1, z1));
+    
+    let t2 = 0.6 - x2*x2 - y2*y2 - z2*z2;
+    n2 = t2 < 0 ? 0 : (t2 *= t2, t2 * t2 * dot3(grad3[gi2], x2, y2, z2));
+    
+    let t3 = 0.6 - x3*x3 - y3*y3 - z3*z3;
+    n3 = t3 < 0 ? 0 : (t3 *= t3, t3 * t3 * dot3(grad3[gi3], x3, y3, z3));
+    
+    return 32.0 * (n0 + n1 + n2 + n3);
+}
+
+/**
+ * Fraktal Brownian Motion (FBM) Noise
+ */
+function fbmNoise(x, y, z, octaves) {
+    let value = 0;
+    let amplitude = 1;
+    let frequency = 1;
+    let maxValue = 0;
+    
+    for (let i = 0; i < octaves; i++) {
+        value += amplitude * noise3D(x * frequency, y * frequency, z * frequency);
+        maxValue += amplitude;
+        amplitude *= 0.5;
+        frequency *= 2;
+    }
+    
+    return value / maxValue;
 }
 
 // ============================================
@@ -226,6 +349,38 @@ export function applyEffects(model, deltaTime) {
                     }
                     break;
                 }
+                
+                case 'fractal': {
+                    const fractalInt = effectIntensities.fractal;
+                    const scale = effectState.fractalScale * 5 + 1; // 1-6 range
+                    const speed = effectState.fractalSpeed * 2;
+                    const octaves = effectState.fractalOctaves;
+                    const animTime = time * speed;
+                    
+                    for (let i = 0; i < positions.length; i += 3) {
+                        const x = originalData[i];
+                        const y = originalData[i + 1];
+                        const z = originalData[i + 2];
+                        
+                        // FBM Noise für organische Verformung
+                        const noiseX = fbmNoise(x * scale + animTime, y * scale, z * scale, octaves);
+                        const noiseY = fbmNoise(x * scale, y * scale + animTime, z * scale + 100, octaves);
+                        const noiseZ = fbmNoise(x * scale + 200, y * scale, z * scale + animTime, octaves);
+                        
+                        // Displacement basierend auf Noise
+                        const displacement = fractalInt * 0.5;
+                        offsets[i] += noiseX * displacement;
+                        offsets[i + 1] += noiseY * displacement;
+                        offsets[i + 2] += noiseZ * displacement;
+                    }
+                    
+                    // Farbmodulation
+                    if (material) {
+                        const colorNoise = fbmNoise(time * 0.5, 0, 0, 2);
+                        material.emissive.offsetHSL(colorNoise * 0.1 * fractalInt, 0, fractalInt * 0.1);
+                    }
+                    break;
+                }
             }
         }
         
@@ -271,6 +426,11 @@ export function toggleEffect(effect) {
         edgePass.enabled = activeEffects.has('edge');
     }
     
+    // Kaleidoscope
+    if (effect === 'kaleidoscope') {
+        setKaleidoscopeEnabled(activeEffects.has('kaleidoscope'));
+    }
+    
     // Geometrie zurücksetzen wenn keine Effekte
     if (activeEffects.size === 0 && modelState.currentModel) {
         resetGeometry(modelState.currentModel);
@@ -309,6 +469,7 @@ export function clearAllEffects() {
     edgePass.enabled = false;
     afterimagePass.enabled = false;
     setParticlesEnabled(false);
+    setKaleidoscopeEnabled(false);
     
     if (modelState.currentModel) {
         resetGeometry(modelState.currentModel);
@@ -450,6 +611,89 @@ export function initEffectUI() {
     // Initial Trails
     setTrailsIntensity(0.7);
     
+    // Fractal Slider
+    const fractalIntSlider = document.getElementById('fractalIntensity');
+    if (fractalIntSlider) {
+        fractalIntSlider.addEventListener('input', (e) => {
+            effectIntensities.fractal = parseInt(e.target.value) / 100;
+            document.getElementById('fractalIntensityValue').textContent = e.target.value + '%';
+        });
+    }
+    
+    const fractalScaleSlider = document.getElementById('fractalScale');
+    if (fractalScaleSlider) {
+        fractalScaleSlider.addEventListener('input', (e) => {
+            effectState.fractalScale = parseInt(e.target.value) / 100;
+            document.getElementById('fractalScaleValue').textContent = e.target.value + '%';
+        });
+    }
+    
+    const fractalSpeedSlider = document.getElementById('fractalSpeed');
+    if (fractalSpeedSlider) {
+        fractalSpeedSlider.addEventListener('input', (e) => {
+            effectState.fractalSpeed = parseInt(e.target.value) / 100;
+            document.getElementById('fractalSpeedValue').textContent = e.target.value + '%';
+        });
+    }
+    
+    const fractalOctavesSlider = document.getElementById('fractalOctaves');
+    if (fractalOctavesSlider) {
+        fractalOctavesSlider.addEventListener('input', (e) => {
+            effectState.fractalOctaves = parseInt(e.target.value);
+            document.getElementById('fractalOctavesValue').textContent = e.target.value;
+        });
+    }
+    
+    // Kaleidoscope Slider
+    const kaleidoscopeSegmentsSlider = document.getElementById('kaleidoscopeSegments');
+    if (kaleidoscopeSegmentsSlider) {
+        kaleidoscopeSegmentsSlider.addEventListener('input', (e) => {
+            const segments = parseInt(e.target.value);
+            setKaleidoscopeSegments(segments);
+            document.getElementById('kaleidoscopeSegmentsValue').textContent = segments;
+        });
+    }
+    
+    const kaleidoscopeRotationSlider = document.getElementById('kaleidoscopeRotation');
+    if (kaleidoscopeRotationSlider) {
+        kaleidoscopeRotationSlider.addEventListener('input', (e) => {
+            const degrees = parseInt(e.target.value);
+            const radians = degrees * Math.PI / 180;
+            setKaleidoscopeRotation(radians);
+            document.getElementById('kaleidoscopeRotationValue').textContent = degrees + '°';
+        });
+    }
+    
+    const kaleidoscopeZoomSlider = document.getElementById('kaleidoscopeZoom');
+    if (kaleidoscopeZoomSlider) {
+        kaleidoscopeZoomSlider.addEventListener('input', (e) => {
+            const zoom = parseInt(e.target.value) / 100;
+            setKaleidoscopeZoom(zoom);
+            document.getElementById('kaleidoscopeZoomValue').textContent = e.target.value + '%';
+        });
+    }
+    
+    const kaleidoscopeAutoRotateCheckbox = document.getElementById('kaleidoscopeAutoRotate');
+    if (kaleidoscopeAutoRotateCheckbox) {
+        kaleidoscopeAutoRotateCheckbox.addEventListener('change', (e) => {
+            const speedSlider = document.getElementById('kaleidoscopeSpeed');
+            const speed = speedSlider ? parseInt(speedSlider.value) / 100 : 0.3;
+            setKaleidoscopeAutoRotate(e.target.checked, speed);
+        });
+    }
+    
+    const kaleidoscopeSpeedSlider = document.getElementById('kaleidoscopeSpeed');
+    if (kaleidoscopeSpeedSlider) {
+        kaleidoscopeSpeedSlider.addEventListener('input', (e) => {
+            const speed = parseInt(e.target.value) / 100;
+            document.getElementById('kaleidoscopeSpeedValue').textContent = e.target.value + '%';
+            const autoRotate = document.getElementById('kaleidoscopeAutoRotate');
+            if (autoRotate?.checked) {
+                setKaleidoscopeAutoRotate(true, speed);
+            }
+        });
+    }
+    
     // Audio-Skalierung
     const audioScaleCheckbox = document.getElementById('audioScaleEnabled');
     const audioScaleSlider = document.getElementById('audioScaleAmount');
@@ -511,3 +755,6 @@ export function setGainLevel(level) {
 export function setEffectIntensity(effect, intensity) {
     effectIntensities[effect] = intensity;
 }
+
+// Re-export für Animation Loop
+export { updateKaleidoscope };

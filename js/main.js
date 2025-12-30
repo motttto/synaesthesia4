@@ -22,6 +22,10 @@ import {
     initParticleSystem, updateParticles, setParticleColor, 
     setParticlesEnabled, particleState 
 } from './core/particles.js';
+import {
+    initVideoUI, updateVideoTexture, videoState,
+    applyVideoToModel, removeVideoFromModel, onModelChanged
+} from './core/video-texture.js';
 
 // Models
 import { 
@@ -36,7 +40,8 @@ import {
 import { 
     activeEffects, effectIntensities, effectState,
     applyEffects, toggleEffect, clearAllEffects, resetAll,
-    resetGeometry, initEffectUI, setRefreshVisualsCallback
+    resetGeometry, initEffectUI, setRefreshVisualsCallback,
+    updateKaleidoscope
 } from './effects/visual-effects.js';
 
 // Audio
@@ -68,6 +73,10 @@ import {
     initSpeechRecognition, startSpeech, stopSpeech, speechState,
     initSpeechUI, setOnSpeechResultCallback
 } from './input/speech.js';
+import {
+    cameraInputState, initCameraInputUI, renderCameraOverlay,
+    loadCameraDevices, updateCameraTexture, onCameraModelChanged
+} from './input/camera-input.js';
 
 // Analysis
 import { analyzeIntervals, detectChord, defaultAnalysis } from './analysis/intervals.js';
@@ -327,6 +336,12 @@ function animate() {
     // Partikel
     updateParticles(deltaTime, audioLevel);
     
+    // Video Texture Update (mit Audio-Level für reactive displacement)
+    updateVideoTexture(audioLevel);
+    
+    // Kaleidoscope Auto-Rotate
+    updateKaleidoscope(deltaTime);
+    
     // Visual Effects auf Modell
     if (modelState.currentModel && colorCalcState.activeSchema !== 'alex') {
         applyEffects(modelState.currentModel, deltaTime);
@@ -367,6 +382,12 @@ function animate() {
     // Controls und Render
     controls.update();
     composer.render();
+    
+    // Camera Input Overlay (nach dem Haupt-Render)
+    if (cameraInputState.enabled) {
+        renderCameraOverlay(renderer.domElement, audioLevel);
+        updateCameraTexture();
+    }
 }
 
 // ============================================
@@ -381,9 +402,14 @@ async function init() {
     startBtn = document.getElementById('startBtn');
     audioSourceSelect = document.getElementById('audioSourceSelect');
     
-    // Callback für refreshVisuals setzen
-    setRefreshVisualsCallback(refreshVisuals);
-    setModelRefreshCallback(refreshVisuals);
+    // Callback für refreshVisuals setzen (inkl. Video-Textur und Camera-Textur Re-Apply)
+    const combinedRefresh = () => {
+        refreshVisuals();
+        onModelChanged();
+        onCameraModelChanged();
+    };
+    setRefreshVisualsCallback(combinedRefresh);
+    setModelRefreshCallback(combinedRefresh);
     
     // MIDI Note Callback
     setOnMidiNoteCallback((notes) => {
@@ -407,6 +433,8 @@ async function init() {
     initStream();
     initAiUI();
     initIntervalModal();
+    initVideoUI();
+    initCameraInputUI();
     
     // Speech → AI Callback
     setOnSpeechResultCallback((rawText, filteredText) => {
@@ -574,15 +602,15 @@ async function init() {
     
     const modelVisibilityBtn = document.getElementById('modelVisibilityBtn');
     if (modelVisibilityBtn) {
-        // Initial: Modell ist sichtbar (Button nicht active)
-        modelVisibilityBtn.classList.remove('active');
+        // Initial: Modell ist sichtbar = active = grün
+        modelVisibilityBtn.classList.add('active');
         modelState.modelVisible = true;
         
         modelVisibilityBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const isHidden = modelVisibilityBtn.classList.toggle('active');
-            // active = Auge durchgestrichen = Modell versteckt
-            setModelVisibility(!isHidden);
+            const isVisible = modelVisibilityBtn.classList.toggle('active');
+            // active = sichtbar = grün, nicht active = versteckt = rot
+            setModelVisibility(isVisible);
         });
     }
     
@@ -671,6 +699,8 @@ window.Synaesthesia = {
     speechState,
     percussionState,
     aiState,
+    videoState,
+    cameraInputState,
     activeEffects,
     scene,
     camera,

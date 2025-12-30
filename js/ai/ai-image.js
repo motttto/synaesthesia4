@@ -691,7 +691,36 @@ export function initAiUI() {
     // Start ComfyUI Button
     const startComfyBtn = document.getElementById('startComfyBtn');
     if (startComfyBtn) {
-        startComfyBtn.addEventListener('click', () => {
+        startComfyBtn.addEventListener('click', async () => {
+            // Terminal-Befehl zum Starten von ComfyUI
+            const comfyCommand = 'cd ~/ComfyUI && python main.py';
+            
+            try {
+                await navigator.clipboard.writeText(comfyCommand);
+                console.log('ComfyUI command copied:', comfyCommand);
+                // Visuelles Feedback
+                const originalText = startComfyBtn.textContent;
+                startComfyBtn.textContent = '✅ Kopiert!';
+                startComfyBtn.style.background = '#2a5';
+                setTimeout(() => {
+                    startComfyBtn.textContent = originalText;
+                    startComfyBtn.style.background = '';
+                }, 1500);
+            } catch (err) {
+                console.error('Failed to copy command:', err);
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = comfyCommand;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                startComfyBtn.textContent = '✅ Kopiert!';
+                setTimeout(() => {
+                    startComfyBtn.textContent = 'Start ComfyUI';
+                }, 1500);
+            }
+            
             // Versuche über Electron ComfyUI zu starten
             if (window.electronAPI?.startComfyUI) {
                 window.electronAPI.startComfyUI();
@@ -699,10 +728,7 @@ export function initAiUI() {
                     statusEl.textContent = '🚀 Starting ComfyUI...';
                     statusEl.style.color = '#ff0';
                 }
-                // Nach 5 Sekunden Verbindung prüfen
                 setTimeout(checkComfyConnection, 5000);
-            } else {
-                alert('ComfyUI muss manuell gestartet werden.\nÖffne Terminal und führe aus:\ncd /path/to/ComfyUI && python main.py');
             }
         });
     }

@@ -234,3 +234,119 @@ export function updatePostProcessingResolution(width, height) {
         pair.v.uniforms.resolution.value.set(width, height);
     });
 }
+
+// ============================================
+// KALEIDOSCOPE SHADER
+// ============================================
+
+export const KaleidoscopeShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'segments': { value: 6.0 },
+        'rotation': { value: 0.0 },
+        'centerX': { value: 0.5 },
+        'centerY': { value: 0.5 },
+        'zoom': { value: 1.0 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float segments;
+        uniform float rotation;
+        uniform float centerX;
+        uniform float centerY;
+        uniform float zoom;
+        
+        varying vec2 vUv;
+        
+        #define PI 3.14159265359
+        #define TWO_PI 6.28318530718
+        
+        void main() {
+            // Offset zum Zentrum
+            vec2 center = vec2(centerX, centerY);
+            vec2 uv = vUv - center;
+            
+            // Zoom anwenden
+            uv *= zoom;
+            
+            // Polar-Koordinaten
+            float radius = length(uv);
+            float angle = atan(uv.y, uv.x) + rotation;
+            
+            // Winkel auf Segment-Bereich mappen
+            float segmentAngle = TWO_PI / segments;
+            angle = mod(angle, segmentAngle);
+            
+            // Spiegeln innerhalb des Segments
+            if (angle > segmentAngle * 0.5) {
+                angle = segmentAngle - angle;
+            }
+            
+            // Zurück zu kartesischen Koordinaten
+            vec2 newUv = vec2(cos(angle), sin(angle)) * radius;
+            newUv += center;
+            
+            // Clamp um Artefakte zu vermeiden
+            newUv = clamp(newUv, 0.001, 0.999);
+            
+            gl_FragColor = texture2D(tDiffuse, newUv);
+        }
+    `
+};
+
+// Kaleidoscope Pass erstellen
+export const kaleidoscopePass = new ShaderPass(KaleidoscopeShader);
+kaleidoscopePass.enabled = false;
+composer.addPass(kaleidoscopePass);
+
+// Kaleidoscope State
+export const kaleidoscopeState = {
+    enabled: false,
+    segments: 6,
+    rotation: 0,
+    autoRotate: false,
+    rotationSpeed: 0.5,
+    zoom: 1.0
+};
+
+export function setKaleidoscopeEnabled(enabled) {
+    kaleidoscopeState.enabled = enabled;
+    kaleidoscopePass.enabled = enabled;
+}
+
+export function setKaleidoscopeSegments(segments) {
+    kaleidoscopeState.segments = segments;
+    kaleidoscopePass.uniforms.segments.value = segments;
+}
+
+export function setKaleidoscopeRotation(rotation) {
+    kaleidoscopeState.rotation = rotation;
+    kaleidoscopePass.uniforms.rotation.value = rotation;
+}
+
+export function setKaleidoscopeZoom(zoom) {
+    kaleidoscopeState.zoom = zoom;
+    kaleidoscopePass.uniforms.zoom.value = zoom;
+}
+
+export function setKaleidoscopeAutoRotate(enabled, speed = 0.5) {
+    kaleidoscopeState.autoRotate = enabled;
+    kaleidoscopeState.rotationSpeed = speed;
+}
+
+/**
+ * Update Kaleidoscope (im Animation Loop aufrufen)
+ */
+export function updateKaleidoscope(deltaTime) {
+    if (kaleidoscopeState.enabled && kaleidoscopeState.autoRotate) {
+        kaleidoscopeState.rotation += deltaTime * kaleidoscopeState.rotationSpeed;
+        kaleidoscopePass.uniforms.rotation.value = kaleidoscopeState.rotation;
+    }
+}

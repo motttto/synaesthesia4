@@ -1,5 +1,20 @@
 # Synästhesie – Changelog & Feature Documentation
 
+## Version 1.1.0 (December 2024)
+
+### 🎥 Video Texture System (NEW)
+- [x] **Video File Loading** - Load local video files as texture source
+- [x] **Three.js VideoTexture** - Real-time video texture for 3D models
+- [x] **Playback Controls** - Play/Pause, Progress Slider, Time Display
+- [x] **Loop Mode** - Toggle video looping
+- [x] **Playback Speed** - Adjustable from 0.25x to 2x
+- [x] **Blend Modes** - Replace, Multiply, Add (Glow), Overlay
+- [x] **Intensity Control** - Adjustable blend amount
+- [x] **Auto Re-Apply** - Video texture persists through model changes
+- [x] **Preview** - Small preview in the control panel
+
+---
+
 ## Version 1.0.0 (December 2024)
 
 ---

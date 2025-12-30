@@ -605,6 +605,11 @@ export function updateMorphTransition() {
         modelState.morphOutgoingModel = null;
         modelState.morphIncomingModel = null;
         modelState.morphingInProgress = false;
+        
+        // Refresh-Callback nach Morphing-Abschluss aufrufen (Texturen übertragen)
+        if (refreshVisualsCallback) {
+            setTimeout(() => refreshVisualsCallback(), 50);
+        }
     }
 }
 
@@ -623,6 +628,7 @@ async function handleModelSetChange(e) {
     modelState.currentModelSet = newSet;
     modelState.modelCache = {};
     modelState.currentSetModels = {};
+    modelState.lastLoadedPath = '';  // Reset, damit neues Modell geladen wird
     
     if (newSet) {
         await loadSetModels(newSet);
@@ -638,7 +644,10 @@ async function handleModelSetChange(e) {
         }
     }
     
-    // Aktuelles Intervall neu laden
+    // Aktuelles Intervall neu laden (ohne Morphing für sauberen Set-Wechsel)
+    const wasMorphing = modelState.morphingEnabled;
+    modelState.morphingEnabled = false;
+    
     try {
         await loadModel(0);
         if (modelSetStatus) {
@@ -651,6 +660,8 @@ async function handleModelSetChange(e) {
             modelSetStatus.style.color = '#f66';
         }
     }
+    
+    modelState.morphingEnabled = wasMorphing;
 }
 
 // ============================================

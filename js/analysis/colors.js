@@ -26,7 +26,8 @@ export const colorCalcState = {
     blendAmount: 0.5,
     alexDegreeColorsEnabled: false,
     alexVignetteEnabled: true,
-    alexGradientEnabled: true
+    alexGradientEnabled: true,
+    colorsEnabled: true // Farben ein/aus
 };
 
 // UI Elements
@@ -104,13 +105,19 @@ export function applyColors(analysis) {
     
     colorCalcState.lastAnalysis = analysis;
     
-    // Gain-Multiplikator für Helligkeit
-    const gainMult = effectState.gainLinked ? effectState.currentGainLevel : 1;
-    
     // Vignette Element holen falls noch nicht vorhanden
     if (!vignetteOverlay) {
         vignetteOverlay = document.getElementById('vignetteOverlay');
     }
+    
+    // Wenn Farben deaktiviert: Grau/Neutral
+    if (!colorCalcState.colorsEnabled) {
+        applyNeutralColors();
+        return;
+    }
+    
+    // Gain-Multiplikator für Helligkeit
+    const gainMult = effectState.gainLinked ? effectState.currentGainLevel : 1;
     
     // HINWEIS: Modell-Sichtbarkeit wird in main.js animate() gesteuert
     // (berücksichtigt sowohl Schema als auch modelVisible Button)
@@ -297,6 +304,36 @@ function applySimpleVignette(color, gainMult) {
     colorState.currentVignetteColor = { r: color.r, g: color.g, b: color.b, a: 0.5 * gainMult };
 }
 
+/**
+ * Wendet neutrale Farben an (wenn Farben deaktiviert)
+ */
+function applyNeutralColors() {
+    const neutralGray = new THREE.Color(0x888888);
+    
+    // Modell auf Grau setzen
+    if (modelState.modelMaterials.length > 0) {
+        modelState.modelMaterials.forEach(mat => {
+            mat.color.copy(neutralGray);
+            mat.emissive = new THREE.Color(0x444444);
+        });
+    } else if (modelState.currentModel) {
+        modelState.currentModel.traverse((child) => {
+            if (child.isMesh && child.material) {
+                child.material.color.copy(neutralGray);
+                child.material.emissive = new THREE.Color(0x444444);
+            }
+        });
+    }
+    
+    // Partikel auf Grau
+    setParticleColor(0x888888);
+    
+    // Hintergrund neutral
+    renderer.setClearColor(0x111111);
+    if (vignetteOverlay) vignetteOverlay.classList.remove('active');
+    colorState.currentVignetteColor = null;
+}
+
 // ============================================
 // SETTERS & UI
 // ============================================
@@ -328,6 +365,11 @@ export function setAlexGradientEnabled(enabled) {
     colorCalcState.alexGradientEnabled = enabled;
 }
 
+export function setColorsEnabled(enabled) {
+    colorCalcState.colorsEnabled = enabled;
+    refreshVisuals();
+}
+
 /**
  * Schnelle Aktualisierung mit gecachter Analyse
  */
@@ -341,6 +383,16 @@ export function refreshVisuals() {
  * Initialisiert Color UI Event Handler
  */
 export function initColorUI() {
+    // Color Visibility Button
+    const colorVisibilityBtn = document.getElementById('colorVisibilityBtn');
+    if (colorVisibilityBtn) {
+        colorVisibilityBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isActive = colorVisibilityBtn.classList.toggle('active');
+            setColorsEnabled(isActive);
+        });
+    }
+    
     // Schema-Auswahl
     document.querySelectorAll('.schema-btn').forEach(btn => {
         btn.addEventListener('click', () => {
