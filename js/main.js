@@ -85,6 +85,9 @@ import {
 // Stream
 import { initStream, setMainCanvas, updateAiState } from './stream/obs-stream.js';
 
+// UI
+import { initIntervalModal, setModelSet as setModalModelSet } from './ui/interval-modal.js';
+
 // AI Image
 import { initAiUI, updateFromSpeech as updateAiFromSpeech, aiState } from './ai/ai-image.js';
 
@@ -403,6 +406,7 @@ async function init() {
     initCameraUI();
     initStream();
     initAiUI();
+    initIntervalModal();
     
     // Speech → AI Callback
     setOnSpeechResultCallback((rawText, filteredText) => {

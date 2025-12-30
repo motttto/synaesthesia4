@@ -188,6 +188,7 @@
             <h3>
                 <span>3D Model</span>
                 <span class="header-icons">
+                    <span class="info-btn" id="intervalInfoBtn" title="Interval Overview">ℹ️</span>
                     <span class="visibility-btn" id="modelVisibilityBtn" title="Show/Hide Model">👁</span>
                     <span class="minimize-btn">▼</span>
                 </span>
@@ -596,6 +597,31 @@
     <!-- Canvas -->
     <canvas id="canvas"></canvas>
     <canvas id="aiOverlayCanvas"></canvas>
+    
+    <!-- Interval Overview Modal -->
+    <div id="intervalModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎵 Intervall-Übersicht</h2>
+                <span class="modal-close" id="intervalModalClose">✕</span>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Synästhetische Zuordnung nach Clara: Jedes musikalische Intervall hat eine charakteristische Form.</p>
+                <div id="intervalGrid" class="interval-grid">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="legend">
+                    <span><strong>Formen:</strong></span>
+                    <span>● Punkt (Prime)</span>
+                    <span>▬ Klein (Sekunde)</span>
+                    <span>⬭ Oval (Terz)</span>
+                    <span>╱ Linie (größere Intervalle)</span>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Import Map for ES Modules -->
     <script type="importmap">
