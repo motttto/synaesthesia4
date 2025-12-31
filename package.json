@@ -33,6 +33,8 @@
       "stream-server.js",
       "stream-client.html",
       "index.html",
+      "js/**/*",
+      "css/**/*",
       "3d-models/**/*"
     ],
     "mac": {

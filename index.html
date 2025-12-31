@@ -563,11 +563,12 @@
                 
                 <!-- Skeleton Tracking -->
                 <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
-                    <label style="font-size: 7px; color: #888;">🦴 Skeleton Tracking</label>
+                    <label style="font-size: 7px; color: #888;">🦴 Body/Face/Hand Tracking</label>
                     <div id="skeletonStatus" style="font-size: 7px; color: #666; margin-top: 2px;">⚫ No models active</div>
                     
-                    <!-- Model Checkboxen -->
+                    <!-- Body Tracking -->
                     <div id="skeletonModels" style="margin-top: 4px; padding: 4px; background: #111; border-radius: 3px;">
+                        <div style="font-size: 7px; color: #666; margin-bottom: 3px;">Body Tracking</div>
                         <!-- MediaPipe -->
                         <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
                             <input type="checkbox" id="skeleton-mediapipe" style="margin: 0;">
@@ -588,6 +589,25 @@
                             <input type="color" id="skeleton-color-movenet-thunder" value="#00ffff" style="width: 18px; height: 14px; padding: 0; border: none;">
                             <label for="skeleton-movenet-thunder" style="font-size: 8px; color: #ccc; flex: 1;">MoveNet Accurate (17pt)</label>
                             <span id="skeleton-status-movenet-thunder" style="font-size: 10px;"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Face & Hand Tracking -->
+                    <div style="margin-top: 4px; padding: 4px; background: #111; border-radius: 3px;">
+                        <div style="font-size: 7px; color: #666; margin-bottom: 3px;">Face & Hands</div>
+                        <!-- Face -->
+                        <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                            <input type="checkbox" id="skeleton-face" style="margin: 0;">
+                            <input type="color" id="skeleton-color-face" value="#ffff00" style="width: 18px; height: 14px; padding: 0; border: none;">
+                            <label for="skeleton-face" style="font-size: 8px; color: #ccc; flex: 1;">😊 Face Mesh (468pt)</label>
+                            <span id="skeleton-status-face" style="font-size: 10px;"></span>
+                        </div>
+                        <!-- Hands -->
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <input type="checkbox" id="skeleton-hands" style="margin: 0;">
+                            <input type="color" id="skeleton-color-hands" value="#ff8800" style="width: 18px; height: 14px; padding: 0; border: none;">
+                            <label for="skeleton-hands" style="font-size: 8px; color: #ccc; flex: 1;">✋ Hands (21pt × 2)</label>
+                            <span id="skeleton-status-hands" style="font-size: 10px;"></span>
                         </div>
                     </div>
                     
@@ -619,6 +639,43 @@
                             <div class="slider-row">
                                 <input type="range" id="skeletonLineWidth" min="1" max="10" value="3">
                                 <span id="skeletonLineWidthValue" style="font-size: 8px;">3px</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 3D Model Mapping -->
+                    <div style="margin-top: 4px; padding: 4px; background: #181818; border-radius: 3px; border: 1px solid #333;">
+                        <div class="interaction-mode" style="margin: 0;">
+                            <label>
+                                <input type="checkbox" id="modelMappingEnabled">
+                                <span style="font-size: 8px; color: #fff;">🎯 Map 3D Model to Tracking</span>
+                            </label>
+                        </div>
+                        <div id="modelMappingControls" style="display: none; margin-top: 6px;">
+                            <div style="margin-bottom: 4px;">
+                                <label style="font-size: 7px; color: #888;">Target</label>
+                                <select id="modelMappingTarget" style="margin-top: 2px; width: 100%;">
+                                    <option value="none">-- Select --</option>
+                                    <option value="nose">👃 Nose</option>
+                                    <option value="face_center">😊 Face Center</option>
+                                    <option value="left_hand">🤚 Left Hand</option>
+                                    <option value="right_hand">✋ Right Hand</option>
+                                    <option value="between_hands">🙌 Between Hands</option>
+                                </select>
+                            </div>
+                            <div class="slider-group" style="margin-bottom: 4px;">
+                                <label style="font-size: 7px;">Smoothing</label>
+                                <div class="slider-row">
+                                    <input type="range" id="modelMappingSmoothing" min="0" max="95" value="30">
+                                    <span id="modelMappingSmoothingValue" style="font-size: 8px;">30%</span>
+                                </div>
+                            </div>
+                            <div class="slider-group">
+                                <label style="font-size: 7px;">Scale</label>
+                                <div class="slider-row">
+                                    <input type="range" id="modelMappingScale" min="10" max="300" value="100">
+                                    <span id="modelMappingScaleValue" style="font-size: 8px;">100%</span>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -439,6 +439,8 @@ export function setPercussionPreset(presetName) {
 }
 
 export function initPercussionUI() {
+    console.log('initPercussionUI called');
+    
     detectedPercussionEl = document.getElementById('detectedPercussion');
     if (detectedPercussionEl) {
         detectedPercussionEl.innerHTML = `
@@ -458,14 +460,18 @@ export function initPercussionUI() {
         presetSelect.value = percussionState.currentPreset;
         
         presetSelect.addEventListener('change', (e) => {
+            console.log('Percussion preset changed:', e.target.value);
             setPercussionPreset(e.target.value);
         });
     }
     
     // Enable Checkbox Event Handler
     const checkbox = document.getElementById('percussionEnabled');
+    console.log('Percussion checkbox element:', checkbox);
+    
     if (checkbox) {
         checkbox.addEventListener('change', (e) => {
+            console.log('Percussion checkbox changed:', e.target.checked);
             percussionState.enabled = e.target.checked;
             if (e.target.checked) {
                 // Badges anzeigen
@@ -483,6 +489,9 @@ export function initPercussionUI() {
                 detectedPercussionEl.innerHTML = '<span style="color:#666">-</span>';
             }
         });
+        console.log('Percussion checkbox handler attached');
+    } else {
+        console.error('Percussion checkbox NOT FOUND!');
     }
 }
 

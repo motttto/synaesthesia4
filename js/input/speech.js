@@ -367,17 +367,25 @@ export function setOnSpeechResultCallback(callback) {
 // ============================================
 
 export function initSpeechUI() {
+    console.log('initSpeechUI called');
+    
     const checkbox = document.getElementById('speechEnabled');
     const langSelect = document.getElementById('speechLang');
     
+    console.log('Speech checkbox element:', checkbox);
+    
     if (checkbox) {
         checkbox.addEventListener('change', (e) => {
+            console.log('Speech checkbox changed:', e.target.checked);
             if (e.target.checked) {
                 startSpeech();
             } else {
                 stopSpeech();
             }
         });
+        console.log('Speech checkbox handler attached');
+    } else {
+        console.error('Speech checkbox NOT FOUND!');
     }
     
     if (langSelect) {

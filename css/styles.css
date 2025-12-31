@@ -23,7 +23,12 @@ html, body {
     top: 0;
     left: 0;
     z-index: 1;
-    pointer-events: none;
+    pointer-events: none !important;
+}
+
+/* Alle Overlay-Canvases sollen keine Klicks blockieren */
+#cameraOverlayCanvas {
+    pointer-events: none !important;
 }
 
 /* === LEFT COLUMN === */
@@ -52,13 +57,18 @@ html, body {
 #ui-bottom {
     position: fixed;
     bottom: 8px;
-    left: 8px;
+    left: 176px; /* Startet NACH dem linken Panel (160px + 16px gap) */
     right: 156px;
     z-index: 100;
     display: flex;
     align-items: flex-end;
     gap: 6px;
     font-size: 9px;
+    pointer-events: none; /* Container selbst blockiert keine Klicks */
+}
+
+#ui-bottom > * {
+    pointer-events: auto; /* Aber die Kinder (Panels) schon */
 }
 
 #ui-bottom .panel {
@@ -124,17 +134,19 @@ html, body {
     opacity: 1;
     cursor: pointer;
     transition: all 0.2s;
-    text-shadow: 0 0 6px #f44, 0 0 10px #f44; /* Roter Glow wenn inaktiv */
+    filter: brightness(1.5); /* Heller machen */
+    text-shadow: 0 0 8px #f44, 0 0 12px #f44, 0 0 4px #fff; /* Roter Glow + weißer Kern */
     border-radius: 3px;
     padding: 0 2px;
 }
 
 .visibility-btn:hover {
     transform: scale(1.1);
+    filter: brightness(2);
 }
 
 .visibility-btn.active {
-    text-shadow: 0 0 6px #4f4, 0 0 10px #4f4; /* Grüner Glow wenn aktiv */
+    text-shadow: 0 0 8px #4f4, 0 0 12px #4f4, 0 0 4px #fff; /* Grüner Glow + weißer Kern */
 }
 
 .panel.minimized .panel-content {

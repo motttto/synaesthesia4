@@ -75,7 +75,8 @@ import {
 } from './input/speech.js';
 import {
     cameraInputState, initCameraInputUI, renderCameraOverlay,
-    loadCameraDevices, updateCameraTexture, onCameraModelChanged
+    loadCameraDevices, updateCameraTexture, onCameraModelChanged,
+    getMappedPosition, skeletonState
 } from './input/camera-input.js';
 
 // Analysis
@@ -374,6 +375,26 @@ function animate() {
         
         if (beatState.pulseEnabled && beatState.pulseAmount > 0) {
             finalScale *= (1 + beatState.pulseAmount * 0.15);
+        }
+        
+        // 3D Model Mapping auf Tracking-Position
+        const mappedPos = getMappedPosition();
+        if (mappedPos && skeletonState.modelMapping.target !== 'none') {
+            // Normalisierte Koordinaten (0-1) in 3D-Koordinaten umrechnen
+            // x: 0 = links (-range), 1 = rechts (+range)
+            // y: 0 = oben (+range), 1 = unten (-range) - invertiert!
+            const range = 15; // Bewegungsbereich in 3D-Einheiten
+            const x = (mappedPos.x - 0.5) * 2 * range;
+            const y = (0.5 - mappedPos.y) * 2 * range; // invertiert
+            const z = mappedPos.z * range * 0.5; // z ist meist klein
+            
+            modelState.currentModel.position.set(x, y, z);
+            
+            // Scale vom Mapping anwenden
+            finalScale *= mappedPos.scale;
+        } else {
+            // Zurück zur Standardposition wenn Mapping aus
+            modelState.currentModel.position.set(0, 0, 0);
         }
         
         modelState.currentModel.scale.set(finalScale, finalScale, finalScale);

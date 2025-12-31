@@ -15,14 +15,17 @@ import {
     skeletonState, detectAllPoses, drawAllSkeletons, 
     initSkeletonUI, loadSkeletonModel, cleanupSkeleton,
     getLandmark, getAllLandmarks, getLandmarks, getActiveModels,
-    setShowSkeleton, setShowPoints, setModelColor, setSkeletonOpacity
+    getHandLandmarks, getFaceLandmarks, getMappedPosition,
+    setShowSkeleton, setShowPoints, setModelColor, setSkeletonOpacity,
+    setModelMappingEnabled, setModelMappingTarget, setModelMappingSmoothing, setModelMappingScale
 } from './skeleton-tracker.js';
 
 // Re-export Skeleton functions
 export { 
     skeletonState, loadSkeletonModel, cleanupSkeleton,
     getLandmark, getAllLandmarks, getLandmarks, getActiveModels,
-    setSkeletonOpacity
+    getHandLandmarks, getFaceLandmarks, getMappedPosition,
+    setSkeletonOpacity, setModelMappingEnabled, setModelMappingTarget
 };
 
 // ============================================
@@ -228,8 +231,8 @@ export async function renderCameraOverlay(targetCanvas, audioLevel = 0) {
                 left: 0;
                 width: 100%;
                 height: 100%;
-                pointer-events: none;
-                z-index: 5;
+                pointer-events: none !important;
+                z-index: 2;
             `;
             document.body.appendChild(overlayCanvas);
         }
@@ -252,21 +255,18 @@ export async function renderCameraOverlay(targetCanvas, audioLevel = 0) {
         cameraCanvas.height = targetCanvas.height;
     }
     
-    // Audio-Reactive Opacity mit aggressiver Kurve
-    let opacity = cameraInputState.opacity;
+    // Audio-Reactive Opacity mit aggressiver Kurve (nur für Kamera)
+    let cameraOpacity = cameraInputState.opacity;
     if (cameraInputState.audioReactive) {
         cameraInputState.currentAudioLevel = audioLevel;
-        // Aggressivere Kurve: quadratisch mit Boost
-        const boostedLevel = Math.min(1, audioLevel * 3); // 3x Boost
-        const curved = Math.pow(boostedLevel, 0.5); // Wurzel für schnelleres Ansprechen
+        const boostedLevel = Math.min(1, audioLevel * 3);
+        const curved = Math.pow(boostedLevel, 0.5);
         const range = cameraInputState.audioOpacityMax - cameraInputState.audioOpacityMin;
-        opacity = cameraInputState.audioOpacityMin + (curved * range);
+        cameraOpacity = cameraInputState.audioOpacityMin + (curved * range);
     }
     
-    // Clear overlay
+    // Clear all
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    
-    // Video auf temporäres Canvas zeichnen (mit Aspect Ratio)
     cameraCtx.clearRect(0, 0, cameraCanvas.width, cameraCanvas.height);
     
     // Aspect Ratio berechnen für "cover"
@@ -287,7 +287,7 @@ export async function renderCameraOverlay(targetCanvas, audioLevel = 0) {
         offsetY = (cameraCanvas.height - drawHeight) / 2;
     }
     
-    // Mirror wenn aktiviert
+    // === SCHRITT 1: Video auf cameraCanvas zeichnen (ohne Skeleton!) ===
     if (cameraInputState.mirror) {
         cameraCtx.save();
         cameraCtx.scale(-1, 1);
@@ -297,19 +297,14 @@ export async function renderCameraOverlay(targetCanvas, audioLevel = 0) {
         cameraCtx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
     }
     
-    // Skeleton Detection & Drawing (alle aktiven Modelle)
-    if (skeletonState.activeModels.size > 0) {
-        await detectAllPoses(video);
-        drawAllSkeletons(cameraCtx, cameraCanvas.width, cameraCanvas.height, cameraInputState.mirror);
-    }
-    
+    // === SCHRITT 2: Kamera-Bild mit Camera Opacity auf Overlay rendern ===
     const blendMode = cameraInputState.blendMode;
     const useBlending = blendMode !== 'normal' && blendMode !== 'source-over';
     
     if (useBlending) {
         // Für echte Blend Modes: 3D-Canvas kopieren, dann Kamera drüber blenden
         overlayCtx.drawImage(targetCanvas, 0, 0);
-        overlayCtx.globalAlpha = opacity;
+        overlayCtx.globalAlpha = cameraOpacity;
         overlayCtx.globalCompositeOperation = getCompositeOperation(blendMode);
         overlayCtx.drawImage(cameraCanvas, 0, 0);
         overlayCtx.globalCompositeOperation = 'source-over';
@@ -320,9 +315,20 @@ export async function renderCameraOverlay(targetCanvas, audioLevel = 0) {
     } else {
         // Einfaches Overlay ohne Blending
         targetCanvas.style.opacity = '1';
-        overlayCtx.globalAlpha = opacity;
-        overlayCtx.drawImage(cameraCanvas, 0, 0);
-        overlayCtx.globalAlpha = 1;
+        
+        // Kamera-Bild mit Camera Opacity
+        if (cameraOpacity > 0) {
+            overlayCtx.globalAlpha = cameraOpacity;
+            overlayCtx.drawImage(cameraCanvas, 0, 0);
+            overlayCtx.globalAlpha = 1;
+        }
+    }
+    
+    // === SCHRITT 3: Skeleton Detection & Drawing (SEPARAT mit eigener Opacity) ===
+    if (skeletonState.activeModels.size > 0) {
+        await detectAllPoses(video);
+        // Skeleton wird direkt auf overlayCanvas gezeichnet mit eigener Opacity
+        drawAllSkeletons(overlayCtx, overlayCanvas.width, overlayCanvas.height, cameraInputState.mirror);
     }
 }
 
