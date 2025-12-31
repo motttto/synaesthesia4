@@ -51,6 +51,7 @@ html, body {
     font-size: 9px;
     max-height: calc(100vh - 16px);
     overflow-y: auto;
+    overflow-x: hidden; /* Kein horizontales Scrollen */
 }
 
 /* === BOTTOM BAR === */
@@ -97,7 +98,7 @@ html, body {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 4px;
-    opacity: 0.5;
+    opacity: 0.7; /* Heller */
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -351,7 +352,7 @@ select option {
     display: flex;
     align-items: center;
     gap: 4px;
-    color: #888;
+    color: #aaa; /* Heller */
     font-size: 8px;
     cursor: pointer;
 }
@@ -366,7 +367,7 @@ select option {
 }
 .slider-group label {
     display: block;
-    color: #666;
+    color: #999; /* Heller */
     font-size: 8px;
     margin-bottom: 1px;
 }

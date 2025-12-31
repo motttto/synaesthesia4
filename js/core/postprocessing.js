@@ -179,10 +179,12 @@ export function setBlurIntensity(intensity) {
     blurAmount = intensity;
     
     // Anzahl aktiver Iterationen basierend auf Intensität
-    const activeIterations = Math.ceil(intensity * MAX_BLUR_ITERATIONS);
+    // Weniger Iterationen bei niedrigen Werten für feinere Kontrolle
+    const activeIterations = Math.ceil(intensity * intensity * MAX_BLUR_ITERATIONS);
     
-    // Radius skalieren: 1 bei 0%, 100 bei 100%
-    const radius = 1 + intensity * 99;
+    // Radius mit quadratischer Kurve für feinere Kontrolle bei niedrigen Werten
+    // 0% = 0, 10% = 1, 50% = 25, 100% = 100
+    const radius = intensity * intensity * 100;
     
     blurPasses.forEach((pair, index) => {
         const isActive = index < activeIterations && intensity > 0;
