@@ -17,6 +17,11 @@ export let analyser = null;
 export let masterGainNode = null;
 export let eqNodes = {};
 
+// Getter für sicheren Zugriff auf analyser (ES6 live binding workaround)
+export function getAnalyser() {
+    return analyser;
+}
+
 export const audioState = {
     sensitivity: 0.05,
     reactionSmoothing: 0.3,
@@ -201,10 +206,6 @@ export function setSensitivity(value) {
 
 export function getAudioContext() {
     return audioContext;
-}
-
-export function getAnalyser() {
-    return analyser;
 }
 
 export function isAudioActive() {

@@ -14,7 +14,7 @@
 
 export const skeletonState = {
     // Aktive Modelle (können mehrere gleichzeitig sein)
-    activeModels: new Set(),  // 'mediapipe', 'movenet-lightning', 'movenet-thunder', 'face', 'hands'
+    activeModels: new Set(),  // 'mediapipe', 'movenet-lightning', 'movenet-thunder', 'face', 'hands', 'objects'
     loading: new Set(),
     ready: new Set(),
     
@@ -24,7 +24,8 @@ export const skeletonState = {
         'movenet-lightning': { landmarks: null },
         'movenet-thunder': { landmarks: null },
         'face': { landmarks: null, faceCount: 0 },
-        'hands': { left: null, right: null, handCount: 0 }
+        'hands': { left: null, right: null, handCount: 0 },
+        'objects': { detections: [], objectCount: 0 }  // NEU: Object Detection
     },
     
     // Visualization Settings pro Modell
@@ -58,6 +59,12 @@ export const skeletonState = {
             pointColor: '#ff8800',
             lineWidth: 2,
             pointRadius: 4
+        },
+        'objects': {
+            color: '#ff0066',
+            pointColor: '#ff0066',
+            lineWidth: 2,
+            pointRadius: 4
         }
     },
     
@@ -87,6 +94,7 @@ export const skeletonState = {
 let mediapipePose = null;
 let mediapipeFace = null;
 let mediapipeHands = null;
+let mediapipeObjects = null;  // NEU: Object Detection
 let movenetLightning = null;
 let movenetThunder = null;
 
@@ -196,6 +204,8 @@ export async function loadSkeletonModel(modelName) {
             await loadMediaPipeFace();
         } else if (modelName === 'hands') {
             await loadMediaPipeHands();
+        } else if (modelName === 'objects') {
+            await loadMediaPipeObjects();
         }
         
         skeletonState.ready.add(modelName);
@@ -212,21 +222,31 @@ export async function loadSkeletonModel(modelName) {
 }
 
 export async function unloadSkeletonModel(modelName) {
-    if (modelName === 'mediapipe' && mediapipePose) {
-        mediapipePose.close();
-        mediapipePose = null;
-    } else if (modelName === 'movenet-lightning' && movenetLightning) {
-        movenetLightning.dispose();
-        movenetLightning = null;
-    } else if (modelName === 'movenet-thunder' && movenetThunder) {
-        movenetThunder.dispose();
-        movenetThunder = null;
-    } else if (modelName === 'face' && mediapipeFace) {
-        mediapipeFace.close();
-        mediapipeFace = null;
-    } else if (modelName === 'hands' && mediapipeHands) {
-        mediapipeHands.close();
-        mediapipeHands = null;
+    try {
+        if (modelName === 'mediapipe' && mediapipePose) {
+            mediapipePose.close();
+            mediapipePose = null;
+        } else if (modelName === 'movenet-lightning' && movenetLightning) {
+            movenetLightning.dispose();
+            movenetLightning = null;
+        } else if (modelName === 'movenet-thunder' && movenetThunder) {
+            movenetThunder.dispose();
+            movenetThunder = null;
+        } else if (modelName === 'face' && mediapipeFace) {
+            mediapipeFace.close();
+            mediapipeFace = null;
+        } else if (modelName === 'hands' && mediapipeHands) {
+            mediapipeHands.close();
+            mediapipeHands = null;
+        } else if (modelName === 'objects' && mediapipeObjects) {
+            // COCO-SSD uses dispose(), not close()
+            if (mediapipeObjects.dispose) {
+                mediapipeObjects.dispose();
+            }
+            mediapipeObjects = null;
+        }
+    } catch (err) {
+        console.warn(`Error unloading model ${modelName}:`, err);
     }
     
     skeletonState.ready.delete(modelName);
@@ -306,6 +326,20 @@ async function loadMediaPipeHands() {
     
     mediapipeHands.onResults(onHandsResults);
     await mediapipeHands.initialize();
+}
+
+// NEU: Object Detection Loader
+async function loadMediaPipeObjects() {
+    // MediaPipe Object Detection via TensorFlow.js
+    if (typeof tf === 'undefined') {
+        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs');
+    }
+    if (typeof cocoSsd === 'undefined') {
+        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd');
+    }
+    
+    mediapipeObjects = await cocoSsd.load();
+    console.log('📦 COCO-SSD Object Detection loaded');
 }
 
 async function loadMoveNet(variant) {
@@ -444,6 +478,20 @@ async function detectWithModel(modelName, videoElement) {
             } else {
                 skeletonState.results['movenet-thunder'].landmarks = null;
             }
+        } else if (modelName === 'objects' && mediapipeObjects) {
+            // COCO-SSD Object Detection
+            const predictions = await mediapipeObjects.detect(videoElement);
+            skeletonState.results['objects'].detections = predictions.map(p => ({
+                class: p.class,
+                score: p.score,
+                bbox: {
+                    x: p.bbox[0] / videoElement.videoWidth,
+                    y: p.bbox[1] / videoElement.videoHeight,
+                    width: p.bbox[2] / videoElement.videoWidth,
+                    height: p.bbox[3] / videoElement.videoHeight
+                }
+            }));
+            skeletonState.results['objects'].objectCount = predictions.length;
         }
         
         const elapsed = performance.now() - startTime;
@@ -618,9 +666,54 @@ export function drawAllSkeletons(ctx, canvasWidth, canvasHeight, mirror = false)
         }
     }
     
+    // Object Detection
+    if (skeletonState.activeModels.has('objects')) {
+        const detections = skeletonState.results['objects']?.detections || [];
+        const style = skeletonState.modelStyles['objects'];
+        drawObjectDetections(ctx, canvasWidth, canvasHeight, detections, style, mirror);
+    }
+    
     // Mapping Target Visualisierung
     if (skeletonState.modelMapping.enabled && skeletonState.modelMapping.target !== 'none') {
         drawMappingTarget(ctx, canvasWidth, canvasHeight, mirror);
+    }
+    
+    ctx.restore();
+}
+
+// NEU: Object Detection Bounding Boxes zeichnen
+function drawObjectDetections(ctx, canvasWidth, canvasHeight, detections, style, mirror) {
+    if (!detections || detections.length === 0) return;
+    
+    ctx.save();
+    
+    if (mirror) {
+        ctx.translate(canvasWidth, 0);
+        ctx.scale(-1, 1);
+    }
+    
+    for (const det of detections) {
+        const x = det.bbox.x * canvasWidth;
+        const y = det.bbox.y * canvasHeight;
+        const w = det.bbox.width * canvasWidth;
+        const h = det.bbox.height * canvasHeight;
+        
+        // Bounding Box
+        ctx.strokeStyle = style.color;
+        ctx.lineWidth = style.lineWidth;
+        ctx.strokeRect(x, y, w, h);
+        
+        // Label Background
+        const label = `${det.class} ${Math.round(det.score * 100)}%`;
+        ctx.font = '14px monospace';
+        const textWidth = ctx.measureText(label).width;
+        
+        ctx.fillStyle = style.color;
+        ctx.fillRect(x, y - 20, textWidth + 8, 20);
+        
+        // Label Text
+        ctx.fillStyle = '#000';
+        ctx.fillText(label, x + 4, y - 5);
     }
     
     ctx.restore();
@@ -777,6 +870,15 @@ export function getHandLandmarks(which = 'left') {
 
 export function getFaceLandmarks() {
     return skeletonState.results['face']?.landmarks || null;
+}
+
+// NEU: Object Detection Getter
+export function getObjectDetections() {
+    return skeletonState.results['objects']?.detections || [];
+}
+
+export function getDetectedObjects() {
+    return skeletonState.results['objects']?.detections?.map(d => d.class) || [];
 }
 
 // ============================================
@@ -936,6 +1038,19 @@ export function initSkeletonUI() {
     if (handsColor) {
         handsColor.value = skeletonState.modelStyles['hands'].color;
         handsColor.addEventListener('input', (e) => setModelColor('hands', e.target.value));
+    }
+    
+    // Objects Checkbox (NEU)
+    const objectsCheckbox = document.getElementById('skeleton-objects');
+    if (objectsCheckbox) {
+        objectsCheckbox.addEventListener('change', async (e) => {
+            await toggleSkeletonModel('objects', e.target.checked);
+        });
+    }
+    const objectsColor = document.getElementById('skeleton-color-objects');
+    if (objectsColor) {
+        objectsColor.value = skeletonState.modelStyles['objects'].color;
+        objectsColor.addEventListener('input', (e) => setModelColor('objects', e.target.value));
     }
     
     // Global Show Skeleton

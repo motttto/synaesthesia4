@@ -1,5 +1,105 @@
 # Synästhesie – Changelog & Feature Documentation
 
+## Version 1.4.1 (January 2025)
+
+### 🎥 Stream Latenz Optimierung
+- [x] **60fps statt 30fps** - Halbiert theoretische Latenz von ~33ms auf ~16.7ms
+- [x] **JPEG Qualität reduziert** - 0.7 statt 0.85 für schnelleres Encoding
+- [x] **Dynamische FPS** - Neue Funktion `setStreamFPS(fps)` für Anpassung (30-120fps)
+- [x] **Clean Output Window** - Ebenfalls auf 60fps aktualisiert
+
+### 🔍 AI Prompt Debug Panel
+- [x] **Eigenes Panel** - Aus AI Image Panel herausgelöst
+- [x] **Linke Spalte** - Neues Panel `🔍 AI Prompt` unter Debug-Panel
+- [x] **Übersichtliche Anzeige:**
+  - Base Prompt (Speech/Manual) - gelb
+  - + Instrument - blau
+  - + Modifiers - lila
+  - 📤 Final Prompt - grün mit Border
+- [x] **Copy & Refresh Buttons** - Final Prompt kopieren/aktualisieren
+- [x] **Timestamp** - Letzte Aktualisierung
+
+### ⏱️ Speech Buffer Timeout Slider
+- [x] **Neuer Slider im AI Prompt Panel** - Steuert Auto-Clear Zeit
+- [x] **Bereich: 1-10 Sekunden** - In 0.5s Schritten
+- [x] **Default: 3.0s** - Guter Kompromiss
+- [x] **Beschreibung** - "Auto-clear nach Stille"
+
+---
+
+## Version 1.4.0 (January 2025)
+
+### 🎥 Background Streaming Fix (OBS/MadMapper)
+- [x] **Stream läuft im Hintergrund** - Stream bricht nicht mehr ab wenn App nicht im Fokus
+- [x] **Electron backgroundThrottling deaktiviert** - Beide Fenster (Main + Output)
+- [x] **Chrome Background-Flags** - `disable-renderer-backgrounding`, `disable-background-timer-throttling`, `disable-backgrounding-occluded-windows`
+- [x] **Separater Background Stream Loop** - `setInterval` statt `requestAnimationFrame` für konstante 30fps
+- [x] **Clean Output Window Fix** - Nutzt jetzt auch `setInterval` für Hintergrund-Rendering
+
+**Technische Details:**
+- Stream Capture läuft unabhängig vom Haupt-Animation-Loop
+- Funktioniert auch bei minimierter App oder anderen aktiven Fenstern
+- Keine Frame-Drops mehr beim App-Wechsel
+
+### 🎙️ Speech Buffer System
+- [x] **Wort-Akkumulation** - Erkannte Wörter werden gesammelt statt sofort überschrieben
+- [x] **Auto-Clear nach 3 Sekunden** - Buffer leert sich automatisch nach Stille
+- [x] **Duplikat-Vermeidung** - Letzte 10 Wörter werden nicht wiederholt
+- [x] **Max 20 Wörter** - Älteste werden entfernt wenn Buffer voll
+- [x] **Visuelles Feedback** - Zeigt `🎙️ [5] wort1 wort2...` mit Wortanzahl
+- [x] **Konfigurierbar** - `setSpeechBufferTimeout(ms)` für Timeout (1-10s)
+
+**Neue Funktionen:**
+- `clearSpeechBuffer()` - Manuell leeren
+- `setSpeechBufferTimeout(ms)` - Timeout anpassen
+- `getSpeechBuffer()` - Aktuellen Buffer abrufen
+
+---
+## Version 1.3.0 (January 2025)
+
+### 🎤 Whisper Local Speech Recognition (FIXED)
+- [x] **whisper-cpp Homebrew Support** - Now detects `whisper-cli` from Homebrew installation
+- [x] **Multiple Model Locations** - Searches homebrew, custom, and whisper.cpp directories
+- [x] **Improved Argument Handling** - Compatible with both old and new whisper-cli argument formats
+- [x] **Better Error Messages** - Clear feedback when ffmpeg or models are missing
+- [x] **whisper-stream Detection** - Prepared for future real-time streaming support
+
+**Supported Paths:**
+- `/opt/homebrew/bin/whisper-cli` (Homebrew M1/M2)
+- `/usr/local/bin/whisper-cli` (Homebrew Intel)
+- `~/whisper.cpp/main` (Self-compiled)
+- `~/.whisper-models/` (Custom model directory)
+
+**Requirements:**
+- `brew install whisper-cpp` - Whisper executable
+- `brew install ffmpeg` - Audio conversion
+- Whisper model (base/small/medium) in `~/.whisper-models/`
+
+---
+
+## Version 1.2.0 (December 2024)
+
+### 📺 Video Out Processing Panel (NEW)
+- [x] **Gain Control** - Output brightness/amplification (0-200%)
+- [x] **Gamma Correction** - Mid-tone adjustment (0.50-2.00)
+- [x] **Contrast** - Dynamic range control (50-200%)
+- [x] **Saturation** - Color intensity (0-200%, 0% = grayscale)
+- [x] **RGB Color EQ** - Individual channel gains:
+  - Red channel (0-200%)
+  - Green channel (0-200%)
+  - Blue channel (0-200%)
+- [x] **Reset Button** - Restore all values to defaults
+- [x] **Performance Optimized** - Gamma lookup table for fast processing
+- [x] **Stream Integration** - Filters applied to Clean Output (OBS/MadMapper)
+
+**Technical Details:**
+- Processing order: Gamma → Contrast → Saturation → RGB Gains
+- Applied via ImageData manipulation at stream canvas level
+- Only processes when values differ from defaults (performance)
+- Located in right column UI after Camera panel
+
+---
+
 ## Version 1.1.0 (December 2024)
 
 ### 🎥 Video Texture System (NEW)
@@ -362,4 +462,4 @@ js/
 
 ---
 
-*Last updated: December 30, 2024*
+*Last updated: January 4, 2025*

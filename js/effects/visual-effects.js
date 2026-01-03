@@ -41,7 +41,13 @@ export const effectState = {
     // Fractal settings
     fractalScale: 0.3,
     fractalSpeed: 0.5,
-    fractalOctaves: 3
+    fractalOctaves: 3,
+    // Explode settings
+    explodeAudioEnabled: false,
+    explodeOscSpeed: 2.0,       // Oszillator-Geschwindigkeit (Hz)
+    explodeOscAmount: 0.5,      // Wie stark der Oszillator moduliert (0-1)
+    explodeAudioAmount: 0.5,    // Wie stark Audio moduliert (0-1)
+    currentAudioLevel: 0        // Aktueller Audio-Pegel (wird von main.js gesetzt)
 };
 
 // Callback für Visuals-Refresh (wird von main.js gesetzt)
@@ -333,19 +339,39 @@ export function applyEffects(model, deltaTime) {
                     
                 case 'explode': {
                     const explodeInt = effectIntensities.explode;
-                    const explodeAmount = explodeInt * (0.5 + Math.sin(time * 2) * 0.5);
+                    
+                    // Oszillator-Modulation
+                    const oscSpeed = effectState.explodeOscSpeed;
+                    const oscAmount = effectState.explodeOscAmount;
+                    const osc = 0.5 + Math.sin(time * oscSpeed) * 0.5 * oscAmount;
+                    
+                    // Audio-Modulation
+                    let audioMod = 1.0;
+                    if (effectState.explodeAudioEnabled) {
+                        const audioLevel = effectState.currentAudioLevel || 0;
+                        audioMod = 1.0 + audioLevel * effectState.explodeAudioAmount * 2;
+                    }
+                    
+                    // Kombinierte Explosion: Basis + Oszillator + Audio
+                    const baseExpand = 0.3; // Basis-Expansion
+                    const explodeAmount = explodeInt * (baseExpand + osc * 0.7) * audioMod;
+                    
                     for (let i = 0; i < positions.length; i += 3) {
                         const x = originalData[i];
                         const y = originalData[i + 1];
                         const z = originalData[i + 2];
                         const expandFactor = explodeAmount * 0.5;
-                        offsets[i] += x * expandFactor + Math.sin(time * 3 + i) * 0.1 * explodeInt;
-                        offsets[i + 1] += y * expandFactor + Math.cos(time * 3 + i) * 0.1 * explodeInt;
-                        offsets[i + 2] += z * expandFactor + Math.sin(time * 2 + i) * 0.1 * explodeInt;
+                        
+                        // Vertex-Animation mit Audio-Boost
+                        const vertexOsc = Math.sin(time * oscSpeed * 1.5 + i) * 0.1 * explodeInt * audioMod;
+                        
+                        offsets[i] += x * expandFactor + vertexOsc;
+                        offsets[i + 1] += y * expandFactor + Math.cos(time * oscSpeed * 1.5 + i) * 0.1 * explodeInt * audioMod;
+                        offsets[i + 2] += z * expandFactor + Math.sin(time * oscSpeed + i) * 0.1 * explodeInt * audioMod;
                     }
                     if (material) {
                         const hue = (time * 0.2) % 1;
-                        material.emissive.offsetHSL(hue * 0.1, 0, explodeInt * 0.2);
+                        material.emissive.offsetHSL(hue * 0.1, 0, explodeInt * 0.2 * audioMod);
                     }
                     break;
                 }
@@ -742,6 +768,43 @@ export function initEffectUI() {
     if (resetAllBtn) {
         resetAllBtn.addEventListener('click', resetAll);
     }
+    
+    // === EXPLODE AUDIO/OSC SETTINGS ===
+    const explodeAudioCheckbox = document.getElementById('explodeAudioEnabled');
+    if (explodeAudioCheckbox) {
+        explodeAudioCheckbox.addEventListener('change', (e) => {
+            effectState.explodeAudioEnabled = e.target.checked;
+            const audioControls = document.getElementById('explodeAudioControls');
+            if (audioControls) audioControls.style.opacity = e.target.checked ? '1' : '0.5';
+        });
+    }
+    
+    const explodeOscSpeedSlider = document.getElementById('explodeOscSpeed');
+    if (explodeOscSpeedSlider) {
+        explodeOscSpeedSlider.addEventListener('input', (e) => {
+            effectState.explodeOscSpeed = parseFloat(e.target.value);
+            const display = document.getElementById('explodeOscSpeedValue');
+            if (display) display.textContent = e.target.value + ' Hz';
+        });
+    }
+    
+    const explodeOscAmountSlider = document.getElementById('explodeOscAmount');
+    if (explodeOscAmountSlider) {
+        explodeOscAmountSlider.addEventListener('input', (e) => {
+            effectState.explodeOscAmount = parseInt(e.target.value) / 100;
+            const display = document.getElementById('explodeOscAmountValue');
+            if (display) display.textContent = e.target.value + '%';
+        });
+    }
+    
+    const explodeAudioAmountSlider = document.getElementById('explodeAudioAmount');
+    if (explodeAudioAmountSlider) {
+        explodeAudioAmountSlider.addEventListener('input', (e) => {
+            effectState.explodeAudioAmount = parseInt(e.target.value) / 100;
+            const display = document.getElementById('explodeAudioAmountValue');
+            if (display) display.textContent = e.target.value + '%';
+        });
+    }
 }
 
 // ============================================
@@ -754,6 +817,26 @@ export function setGainLevel(level) {
 
 export function setEffectIntensity(effect, intensity) {
     effectIntensities[effect] = intensity;
+}
+
+export function setExplodeAudioLevel(level) {
+    effectState.currentAudioLevel = level;
+}
+
+export function setExplodeAudioEnabled(enabled) {
+    effectState.explodeAudioEnabled = enabled;
+}
+
+export function setExplodeOscSpeed(speed) {
+    effectState.explodeOscSpeed = speed;
+}
+
+export function setExplodeOscAmount(amount) {
+    effectState.explodeOscAmount = amount;
+}
+
+export function setExplodeAudioAmount(amount) {
+    effectState.explodeAudioAmount = amount;
 }
 
 // Re-export für Animation Loop

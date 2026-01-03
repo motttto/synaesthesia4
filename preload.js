@@ -19,7 +19,32 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     // Model Sets scannen
     scanModelSet: (setName) => ipcRenderer.invoke('scan-model-set', setName),
-    listModelSets: () => ipcRenderer.invoke('list-model-sets')
+    listModelSets: () => ipcRenderer.invoke('list-model-sets'),
+    
+    // DevTools
+    toggleDevTools: () => ipcRenderer.invoke('toggle-devtools'),
+    
+    // ComfyUI starten
+    startComfyUI: () => ipcRenderer.invoke('start-comfyui'),
+    
+    // Output Window
+    openOutputWindow: () => ipcRenderer.invoke('open-output-window'),
+    
+    // ============================================
+    // WHISPER LOCAL
+    // ============================================
+    
+    // Check if whisper.cpp is available
+    checkWhisper: () => ipcRenderer.invoke('whisper-check'),
+    
+    // List available whisper models
+    listWhisperModels: () => ipcRenderer.invoke('whisper-list-models'),
+    
+    // Download whisper model
+    downloadWhisperModel: (model) => ipcRenderer.invoke('whisper-download-model', model),
+    
+    // Transcribe audio with whisper
+    transcribeWhisper: (options) => ipcRenderer.invoke('whisper-transcribe', options)
 });
 
 console.log('Synästhesie Electron App geladen');

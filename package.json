@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "web": "node web-server.js",
+    "download-yamnet": "node download-yamnet.js",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
@@ -35,7 +36,8 @@
       "index.html",
       "js/**/*",
       "css/**/*",
-      "3d-models/**/*"
+      "3d-models/**/*",
+      "models/**/*"
     ],
     "mac": {
       "category": "public.app-category.music",

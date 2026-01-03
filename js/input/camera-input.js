@@ -162,6 +162,9 @@ export async function startCamera(deviceId) {
  * Stoppt den Kamera-Stream
  */
 export function stopCamera() {
+    // Detection Loop stoppen
+    detectionRunning = false;
+    
     // Textur entfernen
     removeCameraTextureFromModel();
     
@@ -211,11 +214,34 @@ export function toggleCamera() {
 // OVERLAY RENDERING
 // ============================================
 
+// Detection Loop (läuft unabhängig im Hintergrund)
+let detectionRunning = false;
+let lastDetectionTime = 0;
+const DETECTION_INTERVAL = 33; // ~30fps
+
+async function runDetectionLoop(videoElement) {
+    if (detectionRunning) return;
+    detectionRunning = true;
+    
+    while (cameraInputState.enabled && videoElement && !videoElement.paused) {
+        const now = performance.now();
+        if (now - lastDetectionTime >= DETECTION_INTERVAL) {
+            lastDetectionTime = now;
+            if (skeletonState.activeModels.size > 0 && videoElement.readyState >= 2) {
+                await detectAllPoses(videoElement);
+            }
+        }
+        await new Promise(r => setTimeout(r, 10)); // kleine Pause
+    }
+    
+    detectionRunning = false;
+}
+
 /**
  * Rendert das Kamera-Overlay auf das Canvas
- * Wird im Animation Loop aufgerufen
+ * SYNCHRON - verwendet nur gecachte Detection-Ergebnisse
  */
-export async function renderCameraOverlay(targetCanvas, audioLevel = 0) {
+export function renderCameraOverlay(targetCanvas, audioLevel = 0) {
     if (!cameraInputState.enabled || !cameraInputState.videoElement) return;
     if (!cameraInputState.videoElement.videoWidth) return;
     
@@ -324,11 +350,15 @@ export async function renderCameraOverlay(targetCanvas, audioLevel = 0) {
         }
     }
     
-    // === SCHRITT 3: Skeleton Detection & Drawing (SEPARAT mit eigener Opacity) ===
+    // === SCHRITT 3: Skeleton Drawing (SYNCHRON mit gecachten Ergebnissen) ===
     if (skeletonState.activeModels.size > 0) {
-        await detectAllPoses(video);
-        // Skeleton wird direkt auf overlayCanvas gezeichnet mit eigener Opacity
+        // Detection läuft im Hintergrund-Loop, hier nur zeichnen
         drawAllSkeletons(overlayCtx, overlayCanvas.width, overlayCanvas.height, cameraInputState.mirror);
+    }
+    
+    // Detection-Loop starten falls noch nicht läuft
+    if (!detectionRunning && skeletonState.activeModels.size > 0) {
+        runDetectionLoop(video);
     }
 }
 
@@ -536,13 +566,19 @@ export function initCameraInputUI() {
         refreshBtn.addEventListener('click', loadCameraDevices);
     }
     
-    // Camera Select
+    // Camera Select - nur Device ID speichern, NICHT automatisch starten
     if (cameraSelect) {
-        cameraSelect.addEventListener('change', async (e) => {
+        cameraSelect.addEventListener('change', (e) => {
             if (e.target.value) {
-                await startCamera(e.target.value);
+                // Nur Device ID speichern
+                cameraInputState.selectedDeviceId = e.target.value;
+                console.log('Camera selected:', e.target.value);
             } else {
-                stopCamera();
+                // "-- Select Camera --" gewählt = stoppen falls aktiv
+                if (cameraInputState.enabled) {
+                    stopCamera();
+                }
+                cameraInputState.selectedDeviceId = null;
             }
         });
     }

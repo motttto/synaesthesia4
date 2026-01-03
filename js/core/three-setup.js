@@ -48,6 +48,15 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setClearColor(0x000000); // Reines Schwarz RGB(0,0,0)
 
+// WebGL Context Lost Handler
+canvas.addEventListener('webglcontextlost', (event) => {
+    console.error('❌ WebGL Context Lost!', event);
+    event.preventDefault();
+});
+canvas.addEventListener('webglcontextrestored', () => {
+    console.log('✅ WebGL Context Restored');
+});
+
 // ============================================
 // LIGHTS
 // ============================================

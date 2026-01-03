@@ -31,6 +31,202 @@ html, body {
     pointer-events: none !important;
 }
 
+/* === TOP BAR === */
+#ui-top {
+    position: fixed;
+    top: 8px;
+    left: 176px;
+    right: 196px;
+    z-index: 100;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 9px;
+}
+
+#ui-top .panel {
+    margin-bottom: 0;
+}
+
+#ui-top .panel-spectrum {
+    flex: 1;
+    min-width: 200px;
+}
+
+#ui-top .panel-compact {
+    width: auto;
+    min-width: 80px;
+}
+
+/* Spectrum Canvas */
+#spectrumCanvas {
+    width: 100%;
+    height: 50px;
+    background: #111;
+    border-radius: 3px;
+    display: block;
+}
+
+/* Master Row (horizontal compact) */
+.master-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 50px;
+}
+
+.fader-mini {
+    height: 46px;
+    display: flex;
+    align-items: center;
+}
+
+.fader-mini input[type="range"] {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 46px;
+    background: linear-gradient(to bottom, #333, #222);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.fader-mini input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 8px;
+    background: linear-gradient(to bottom, #eee, #999);
+    border-radius: 2px;
+    border: 1px solid #666;
+    cursor: pointer;
+}
+
+.master-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 50px;
+}
+
+.master-info .fader-value {
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.master-info .level-meter {
+    width: 50px;
+    height: 6px;
+}
+
+/* EQ Row (horizontal compact) */
+.eq-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 50px;
+}
+
+.eq-band-mini {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.eq-band-mini input[type="range"] {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    -webkit-appearance: none;
+    width: 12px;
+    height: 36px;
+    background: linear-gradient(to bottom, #4a4, #222 45%, #222 55%, #a44);
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.eq-band-mini input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px;
+    height: 6px;
+    background: #fff;
+    border-radius: 1px;
+    cursor: pointer;
+}
+
+.eq-band-mini span {
+    font-size: 7px;
+    color: #888;
+}
+
+.reset-btn-mini {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: #333;
+    border: none;
+    border-radius: 3px;
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+.reset-btn-mini:hover {
+    background: #444;
+    color: #fff;
+}
+
+/* Beat Row (horizontal compact) */
+.beat-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#panelBeat .beat-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #333;
+    border: 2px solid #555;
+    transition: all 0.05s;
+}
+
+#panelBeat .beat-indicator.flash {
+    background: #ff6600;
+    box-shadow: 0 0 12px #ff6600;
+}
+
+#panelBeat .bpm-value {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.beat-options {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.beat-options label {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.beat-options label:has(input:checked) {
+    opacity: 1;
+}
+
+.beat-options input[type="checkbox"] {
+    width: 10px;
+    height: 10px;
+}
+
 /* === LEFT COLUMN === */
 #ui {
     position: fixed;
@@ -39,6 +235,14 @@ html, body {
     z-index: 100;
     width: 160px;
     font-size: 9px;
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+#ui::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
 }
 
 /* === RIGHT COLUMN === */
@@ -47,11 +251,16 @@ html, body {
     top: 8px;
     right: 8px;
     z-index: 100;
-    width: 140px;
+    width: 180px;
     font-size: 9px;
     max-height: calc(100vh - 16px);
     overflow-y: auto;
-    overflow-x: hidden; /* Kein horizontales Scrollen */
+    overflow-x: hidden;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+#ui-right::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
 }
 
 /* === BOTTOM BAR === */
@@ -59,10 +268,10 @@ html, body {
     position: fixed;
     bottom: 8px;
     left: 176px; /* Startet NACH dem linken Panel (160px + 16px gap) */
-    right: 156px;
+    right: 196px;
     z-index: 100;
     display: flex;
-    align-items: flex-end;
+    align-items: flex-end; /* Panels am unteren Rand ausrichten */
     gap: 6px;
     font-size: 9px;
     pointer-events: none; /* Container selbst blockiert keine Klicks */
@@ -73,15 +282,25 @@ html, body {
 }
 
 #ui-bottom .panel {
-    flex: 1;
+    flex: 0 1 auto; /* Nicht wachsen, nur schrumpfen wenn nötig */
     margin-bottom: 0;
-    min-width: 0;
+    min-width: 120px;
+    max-width: 300px;
+    max-height: 50vh;
+    display: flex;
+    flex-direction: column;
 }
 
-/* Scrollbar */
-#ui-right::-webkit-scrollbar { width: 3px; }
-#ui-right::-webkit-scrollbar-track { background: transparent; }
-#ui-right::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+#ui-bottom .panel-content {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+#ui-bottom .panel-content::-webkit-scrollbar {
+    display: none;
+}
 
 /* === PANEL BASE === */
 .panel {
@@ -131,26 +350,37 @@ html, body {
 }
 
 .visibility-btn {
-    font-size: 12px;
-    opacity: 1;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
     cursor: pointer;
     transition: all 0.2s;
-    filter: brightness(1.5); /* Heller machen */
-    text-shadow: 0 0 8px #f44, 0 0 12px #f44, 0 0 4px #fff; /* Roter Glow + weißer Kern */
-    border-radius: 3px;
-    padding: 0 2px;
+    background: #c33;
+    box-shadow: 0 0 6px #f44, 0 0 10px #c33;
+    border: 1px solid #f66;
 }
 
 .visibility-btn:hover {
-    transform: scale(1.1);
-    filter: brightness(2);
+    transform: scale(1.2);
+    box-shadow: 0 0 8px #f66, 0 0 14px #f44;
 }
 
 .visibility-btn.active {
-    text-shadow: 0 0 8px #4f4, 0 0 12px #4f4, 0 0 4px #fff; /* Grüner Glow + weißer Kern */
+    background: #3c3;
+    box-shadow: 0 0 6px #4f4, 0 0 10px #3c3;
+    border-color: #6f6;
+}
+
+.visibility-btn.active:hover {
+    box-shadow: 0 0 8px #6f6, 0 0 14px #4f4;
 }
 
 .panel.minimized .panel-content {
+    display: none;
+}
+
+/* Hide all content after h3 when minimized (for panels without panel-content wrapper) */
+.panel.minimized > *:not(h3) {
     display: none;
 }
 
@@ -659,7 +889,7 @@ select option {
 
 #aiImagePreview {
     margin-top: 4px;
-    height: 60px;
+    height: 80px;
     background: #111;
     border-radius: 3px;
     display: flex;
@@ -669,7 +899,7 @@ select option {
 }
 #aiImagePreview img {
     max-width: 100%;
-    max-height: 60px;
+    max-height: 80px;
     border-radius: 2px;
 }
 #aiImagePreview .placeholder {
@@ -703,15 +933,15 @@ select option {
     flex-wrap: wrap;
     gap: 3px;
     margin-top: 4px;
-    height: 86px;
+    height: 110px;
     overflow-y: auto;
     background: #0a0a0a;
     border-radius: 3px;
     padding: 3px;
 }
 .ai-thumb {
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    height: 48px;
     border-radius: 2px;
     object-fit: cover;
     cursor: pointer;
@@ -921,8 +1151,8 @@ select option {
 /* === FULLSCREEN TOGGLE === */
 #fullscreenToggle {
     position: fixed;
-    top: 8px;
-    right: 156px;
+    top: 90px;
+    right: 196px;
     z-index: 200;
     width: 24px;
     height: 24px;
@@ -937,18 +1167,94 @@ select option {
     justify-content: center;
 }
 
+/* === COLLAPSE PANELS TOGGLE === */
+#collapsePanelsToggle {
+    position: fixed;
+    top: 90px;
+    right: 224px;
+    z-index: 200;
+    width: 24px;
+    height: 24px;
+    background: rgba(0,0,0,0.8);
+    border: none;
+    border-radius: 4px;
+    color: #888;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+#collapsePanelsToggle:hover {
+    color: #fff;
+    background: rgba(30,30,30,0.9);
+}
+#collapsePanelsToggle.active {
+    color: #4af;
+    background: rgba(20,30,40,0.9);
+    transform: rotate(-90deg);
+}
+
+/* === DEVTOOLS TOGGLE === */
+#devToolsToggle {
+    position: fixed;
+    top: 90px;
+    right: 252px;
+    z-index: 200;
+    width: 24px;
+    height: 24px;
+    background: rgba(0,0,0,0.8);
+    border: none;
+    border-radius: 4px;
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+#devToolsToggle:hover {
+    color: #fff;
+}
+
 /* === FULLSCREEN MODE === */
 body.fullscreen-mode #ui,
 body.fullscreen-mode #ui-right,
-body.fullscreen-mode #ui-bottom {
+body.fullscreen-mode #ui-bottom,
+body.fullscreen-mode #ui-top {
     opacity: 0;
     pointer-events: none;
 }
 body.fullscreen-mode #fullscreenToggle {
+    top: 8px;
     right: 20px;
     opacity: 0.3;
 }
 body.fullscreen-mode #fullscreenToggle:hover { opacity: 1; }
+body.fullscreen-mode #collapsePanelsToggle {
+    top: 8px;
+    right: 50px;
+    opacity: 0.3;
+}
+body.fullscreen-mode #collapsePanelsToggle:hover { opacity: 1; }
+
+/* === COLLAPSED PANELS MODE === */
+body.panels-collapsed #ui,
+body.panels-collapsed #ui-right,
+body.panels-collapsed #ui-bottom,
+body.panels-collapsed #ui-top {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+body.panels-collapsed #collapsePanelsToggle {
+    color: #4af;
+}
+body.panels-collapsed #streamStatus {
+    opacity: 0;
+}
 
 /* === VIGNETTE === */
 #vignetteOverlay {
@@ -965,7 +1271,7 @@ body.fullscreen-mode #fullscreenToggle:hover { opacity: 1; }
 /* === STREAM STATUS === */
 #streamStatus {
     position: fixed;
-    top: 8px;
+    top: 90px;
     left: 176px;
     z-index: 100;
     padding: 4px 8px;
@@ -974,6 +1280,13 @@ body.fullscreen-mode #fullscreenToggle:hover { opacity: 1; }
     font-size: 9px;
     color: #666;
     display: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+#streamStatus:hover {
+    background: rgba(30,30,30,0.9);
+    border-color: #4f4;
 }
 #streamStatus.active {
     display: block;
@@ -982,6 +1295,15 @@ body.fullscreen-mode #fullscreenToggle:hover { opacity: 1; }
 #streamStatus.active::before {
     content: '● ';
     color: #f44;
+    animation: streamPulse 1s infinite;
+}
+#streamStatus.copied {
+    background: rgba(68, 255, 68, 0.2);
+    border-color: #4f4;
+}
+@keyframes streamPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
 
 /* === DEBUG === */
@@ -1529,4 +1851,128 @@ body.fullscreen-mode #fullscreenToggle:hover { opacity: 1; }
 .video-library::-webkit-scrollbar-thumb {
     background: rgba(255,255,255,0.2);
     border-radius: 2px;
+}
+
+/* === AI BPM SYNC BUTTONS === */
+.ai-bpm-btn {
+    padding: 4px 8px;
+    font-size: 9px;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 3px;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-width: 24px;
+}
+.ai-bpm-btn:hover {
+    background: #333;
+    border-color: #666;
+    color: #fff;
+}
+.ai-bpm-btn.active {
+    background: #2a4a2a;
+    border-color: #4f4;
+    color: #4f4;
+}
+
+/* === PROMPT MODIFIER TOGGLES === */
+.prompt-modifier-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 8px;
+    color: #888;
+}
+
+.prompt-modifier-toggle:hover {
+    background: #222;
+    border-color: #555;
+    color: #aaa;
+}
+
+.prompt-modifier-toggle input[type="checkbox"] {
+    display: none;
+}
+
+.prompt-modifier-toggle input[type="checkbox"]:checked + span {
+    color: #4af;
+}
+
+.prompt-modifier-toggle:has(input:checked) {
+    background: #1a2a3a;
+    border-color: #4af;
+    color: #4af;
+}
+
+.prompt-modifier-toggle span {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+/* === SPEECH BACKEND STYLES === */
+#speechBackend {
+    margin-bottom: 0;
+}
+
+#speechWebSettings,
+#speechWhisperComfySettings,
+#speechWhisperLocalSettings {
+    border: 1px solid #222;
+    animation: fadeIn 0.2s ease;
+}
+
+#speechWhisperComfySettings {
+    border-color: #234;
+}
+
+#speechWhisperLocalSettings {
+    border-color: #243;
+}
+
+#speechMicInfo {
+    cursor: help;
+    transition: all 0.2s;
+}
+
+#speechMicInfo:hover {
+    opacity: 0.8;
+}
+
+/* Speech status indicators */
+#speechStatus.listening {
+    color: #4f4;
+    animation: pulse 1.5s infinite;
+}
+
+#speechStatus.processing {
+    color: #ff0;
+}
+
+#speechStatus.error {
+    color: #f44;
+}
+
+/* Whisper model download progress */
+.whisper-download-progress {
+    width: 100%;
+    height: 4px;
+    background: #222;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.whisper-download-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4f4, #4af);
+    transition: width 0.3s;
 }

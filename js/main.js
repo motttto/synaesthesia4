@@ -43,10 +43,16 @@ import {
     resetGeometry, initEffectUI, setRefreshVisualsCallback,
     updateKaleidoscope
 } from './effects/visual-effects.js';
+import {
+    gridState, initGridFloor, updateGrid, setGridEnabled,
+    setGridSize, setGridSpacing, setGridPosition, setLineWidth,
+    setGlowEnabled, setGlowIntensity, setAudioEnabled, setAudioIntensity,
+    setWaveHeight, setWaveSpeed, setGridColor, setUseSchemaColor, setGridEQ
+} from './effects/grid-floor.js';
 
 // Audio
 import { 
-    createAudioChain, audioContext, analyser, 
+    createAudioChain, audioContext, analyser, getAnalyser,
     setEqGain, setMasterGain, setReactionSmoothing,
     setPassthroughEnabled, setOutputDevice, setSensitivity, getCurrentLevel,
     dbToGain
@@ -63,6 +69,10 @@ import {
     PercussionDetector, createPercussionDetector, percussionState,
     initPercussionUI, updatePercussionUI 
 } from './audio/percussion.js';
+import {
+    instrumentState, initInstrumentUI, getInstrumentForPrompt,
+    startInstrumentDetection, stopInstrumentDetection
+} from './audio/instrument-detector.js';
 
 // Input
 import { 
@@ -70,8 +80,9 @@ import {
     initMidiUI, setOnMidiNoteCallback
 } from './input/midi.js';
 import { 
-    initSpeechRecognition, startSpeech, stopSpeech, speechState,
-    initSpeechUI, setOnSpeechResultCallback
+    startSpeech, stopSpeech, speechState,
+    initSpeechUI, setOnSpeechResultCallback, setAppAudioStream,
+    detectSystemMicrophone, setBackend
 } from './input/speech.js';
 import {
     cameraInputState, initCameraInputUI, renderCameraOverlay,
@@ -93,13 +104,14 @@ import {
 } from './camera/controls.js';
 
 // Stream
-import { initStream, setMainCanvas, updateAiState } from './stream/obs-stream.js';
+import { initStream, setMainCanvas, updateAiState, captureAndSendFrame, compositeCleanOutput } from './stream/obs-stream.js';
 
 // UI
 import { initIntervalModal, setModelSet as setModalModelSet } from './ui/interval-modal.js';
+import { spectrumAnalyzer } from './ui/spectrum.js';
 
 // AI Image
-import { initAiUI, updateFromSpeech as updateAiFromSpeech, aiState } from './ai/ai-image.js';
+import { initAiUI, updateFromSpeech as updateAiFromSpeech, aiState, onBeat as onAiBeat } from './ai/ai-image.js';
 
 // ============================================
 // STATE
@@ -111,10 +123,41 @@ let pitchDetector = null;
 let percussionDetector = null;
 let isRunning = false;
 
+// Background Stream Loop (läuft auch wenn App nicht im Fokus)
+let backgroundStreamInterval = null;
+let BACKGROUND_STREAM_FPS = 60; // Erhöht von 30 auf 60 für niedrigere Latenz
+
 // UI Elements
 let levelMeter = null;
 let startBtn = null;
 let audioSourceSelect = null;
+
+// ============================================
+// BACKGROUND STREAM LOOP
+// Läuft unabhängig von requestAnimationFrame
+// damit der Stream nicht abbricht wenn App nicht im Fokus
+// ============================================
+
+function startBackgroundStreamLoop() {
+    if (backgroundStreamInterval) {
+        clearInterval(backgroundStreamInterval);
+    }
+    
+    console.log(`🎥 Background Stream Loop gestartet @ ${BACKGROUND_STREAM_FPS}fps`);
+    
+    backgroundStreamInterval = setInterval(() => {
+        // Composite und Frame senden (läuft auch im Hintergrund!)
+        captureAndSendFrame();
+    }, 1000 / BACKGROUND_STREAM_FPS);
+}
+
+function stopBackgroundStreamLoop() {
+    if (backgroundStreamInterval) {
+        clearInterval(backgroundStreamInterval);
+        backgroundStreamInterval = null;
+        console.log('🎥 Background Stream Loop gestoppt');
+    }
+}
 
 // ============================================
 // AUDIO SOURCE MANAGEMENT
@@ -177,6 +220,13 @@ async function startAudio(deviceId) {
         if (percussionState.enabled) {
             percussionDetector = createPercussionDetector(ctx, analyser);
         }
+        
+        // Spectrum Analyzer verbinden
+        spectrumAnalyzer.setAnalyser(analyser);
+        
+        // Audio Stream für Speech Recognition bereitstellen (Whisper backends)
+        setAppAudioStream(stream);
+        console.log('🎙️ Audio Stream an Speech Recognition weitergeleitet');
         
         isRunning = true;
         
@@ -246,10 +296,22 @@ function updateUI(notes, analysis) {
 }
 
 function updateLevelMeter() {
-    if (!analyser || !levelMeter) return;
+    const currentAnalyser = getAnalyser();
     
-    const timeData = new Float32Array(analyser.fftSize);
-    analyser.getFloatTimeDomainData(timeData);
+    // Debug: Einmal pro Sekunde loggen
+    if (!window._levelMeterDebugTime || Date.now() - window._levelMeterDebugTime > 2000) {
+        console.log('LevelMeter Debug:', {
+            hasAnalyser: !!currentAnalyser,
+            hasLevelMeter: !!levelMeter,
+            levelMeterId: levelMeter?.id
+        });
+        window._levelMeterDebugTime = Date.now();
+    }
+    
+    if (!currentAnalyser || !levelMeter) return 0;
+    
+    const timeData = new Float32Array(currentAnalyser.fftSize);
+    currentAnalyser.getFloatTimeDomainData(timeData);
     
     let sum = 0;
     for (let i = 0; i < timeData.length; i++) {
@@ -258,6 +320,12 @@ function updateLevelMeter() {
     const rms = Math.sqrt(sum / timeData.length);
     const db = 20 * Math.log10(rms + 0.0001);
     const percent = Math.max(0, Math.min(100, (db + 60) * 1.67));
+    
+    // Debug bei Audio
+    if (percent > 1 && (!window._lastLevelLog || Date.now() - window._lastLevelLog > 1000)) {
+        console.log('Audio Level:', percent.toFixed(1) + '%');
+        window._lastLevelLog = Date.now();
+    }
     
     levelMeter.style.width = percent + '%';
     
@@ -324,6 +392,10 @@ function animate() {
         const beatDetected = detectBeat(analyser);
         if (beatDetected) {
             triggerBeatEffects();
+            // AI Image BPM Sync
+            if (beatState.currentBpm > 0) {
+                onAiBeat(beatState.currentBpm);
+            }
         }
     }
     
@@ -343,8 +415,37 @@ function animate() {
     // Kaleidoscope Auto-Rotate
     updateKaleidoscope(deltaTime);
     
+    // Grid Floor Update mit EQ-Daten
+    const gridAnalyser = getAnalyser();
+    if (gridState.enabled && gridAnalyser) {
+        const freqData = new Uint8Array(gridAnalyser.frequencyBinCount);
+        gridAnalyser.getByteFrequencyData(freqData);
+        
+        // EQ Bands berechnen (Low: 0-200Hz, Mid: 200-2000Hz, High: 2000-20000Hz)
+        const nyquist = audioContext ? audioContext.sampleRate / 2 : 22050;
+        const binSize = nyquist / freqData.length;
+        
+        const lowEnd = Math.floor(200 / binSize);
+        const midEnd = Math.floor(2000 / binSize);
+        
+        let lowSum = 0, midSum = 0, highSum = 0;
+        for (let i = 0; i < lowEnd && i < freqData.length; i++) lowSum += freqData[i];
+        for (let i = lowEnd; i < midEnd && i < freqData.length; i++) midSum += freqData[i];
+        for (let i = midEnd; i < freqData.length; i++) highSum += freqData[i];
+        
+        const low = (lowSum / Math.max(1, lowEnd)) / 255;
+        const mid = (midSum / Math.max(1, midEnd - lowEnd)) / 255;
+        const high = (highSum / Math.max(1, freqData.length - midEnd)) / 255;
+        
+        updateGrid(deltaTime, { low, mid, high });
+    } else if (gridState.enabled) {
+        updateGrid(deltaTime, { low: 0, mid: 0, high: 0 });
+    }
+    
     // Visual Effects auf Modell
     if (modelState.currentModel && colorCalcState.activeSchema !== 'alex') {
+        // Audio-Level für Explode-Effekt setzen
+        effectState.currentAudioLevel = audioLevel;
         applyEffects(modelState.currentModel, deltaTime);
     }
     
@@ -357,6 +458,13 @@ function animate() {
     const showModel = modelState.modelVisible && (colorCalcState.activeSchema !== 'alex');
     if (modelState.currentModel) {
         modelState.currentModel.visible = showModel;
+    }
+    // Auch Morphing-Modelle verstecken wenn Visibility aus
+    if (modelState.morphOutgoingModel) {
+        modelState.morphOutgoingModel.visible = showModel;
+    }
+    if (modelState.morphIncomingModel) {
+        modelState.morphIncomingModel.visible = showModel;
     }
     
     // Modell-Rotation und Skalierung
@@ -409,6 +517,9 @@ function animate() {
         renderCameraOverlay(renderer.domElement, audioLevel);
         updateCameraTexture();
     }
+    
+    // Stream Capture wird vom Background Loop gehandelt (setInterval)
+    // damit es auch läuft wenn die App nicht im Fokus ist
 }
 
 // ============================================
@@ -441,12 +552,15 @@ async function init() {
     
     // Module initialisieren
     initParticleSystem();
+    initGridFloor();
     await initializeModels();
     
     // UI Handlers initialisieren
     initEffectUI();
+    initGridFloorUI();
     initBeatUI();
     initPercussionUI();
+    initInstrumentUI();
     initMidiUI();
     initSpeechUI();
     initColorUI();
@@ -456,6 +570,15 @@ async function init() {
     initIntervalModal();
     initVideoUI();
     initCameraInputUI();
+    
+    // DevTools Button (nur in Electron)
+    const devToolsBtn = document.getElementById('devToolsToggle');
+    if (devToolsBtn && window.electronAPI?.isElectron) {
+        devToolsBtn.style.display = 'flex';
+        devToolsBtn.addEventListener('click', () => {
+            window.electronAPI.toggleDevTools();
+        });
+    }
     
     // Speech → AI Callback
     setOnSpeechResultCallback((rawText, filteredText) => {
@@ -696,7 +819,161 @@ async function init() {
     // Animation Loop starten
     animate();
     
+    // Background Stream Loop starten (läuft auch wenn App nicht im Fokus!)
+    startBackgroundStreamLoop();
+    
     console.log('Synästhesie bereit!');
+}
+
+// ============================================
+// GRID FLOOR UI INITIALIZATION
+// ============================================
+
+function initGridFloorUI() {
+    // Visibility Toggle
+    const gridVisibilityBtn = document.getElementById('gridVisibilityBtn');
+    if (gridVisibilityBtn) {
+        gridVisibilityBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isActive = gridVisibilityBtn.classList.toggle('active');
+            setGridEnabled(isActive);
+        });
+    }
+    
+    // Grid Size X
+    const gridSizeX = document.getElementById('gridSizeX');
+    if (gridSizeX) {
+        gridSizeX.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            const gridSizeY = document.getElementById('gridSizeY');
+            setGridSize(val, gridSizeY ? parseInt(gridSizeY.value) : 40);
+            const display = document.getElementById('gridSizeXValue');
+            if (display) display.textContent = val;
+        });
+    }
+    
+    // Grid Size Y
+    const gridSizeY = document.getElementById('gridSizeY');
+    if (gridSizeY) {
+        gridSizeY.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            const gridSizeX = document.getElementById('gridSizeX');
+            setGridSize(gridSizeX ? parseInt(gridSizeX.value) : 40, val);
+            const display = document.getElementById('gridSizeYValue');
+            if (display) display.textContent = val;
+        });
+    }
+    
+    // Spacing
+    const gridSpacing = document.getElementById('gridSpacing');
+    if (gridSpacing) {
+        gridSpacing.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            setGridSpacing(val);
+            const display = document.getElementById('gridSpacingValue');
+            if (display) display.textContent = val.toFixed(1);
+        });
+    }
+    
+    // Position Y (Height)
+    const gridPositionY = document.getElementById('gridPositionY');
+    if (gridPositionY) {
+        gridPositionY.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            setGridPosition(val);
+            const display = document.getElementById('gridPositionYValue');
+            if (display) display.textContent = val.toFixed(1);
+        });
+    }
+    
+    // Line Width
+    const gridLineWidth = document.getElementById('gridLineWidth');
+    if (gridLineWidth) {
+        gridLineWidth.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            setLineWidth(val);
+            const display = document.getElementById('gridLineWidthValue');
+            if (display) display.textContent = val.toFixed(1);
+        });
+    }
+    
+    // Glow Enabled
+    const gridGlowEnabled = document.getElementById('gridGlowEnabled');
+    if (gridGlowEnabled) {
+        gridGlowEnabled.addEventListener('change', (e) => {
+            setGlowEnabled(e.target.checked);
+        });
+    }
+    
+    // Glow Intensity
+    const gridGlowIntensity = document.getElementById('gridGlowIntensity');
+    if (gridGlowIntensity) {
+        gridGlowIntensity.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            setGlowIntensity(val);
+            const display = document.getElementById('gridGlowIntensityValue');
+            if (display) display.textContent = val.toFixed(1);
+        });
+    }
+    
+    // Audio Enabled
+    const gridAudioEnabled = document.getElementById('gridAudioEnabled');
+    if (gridAudioEnabled) {
+        gridAudioEnabled.addEventListener('change', (e) => {
+            setAudioEnabled(e.target.checked);
+        });
+    }
+    
+    // Wave Height
+    const gridWaveHeight = document.getElementById('gridWaveHeight');
+    if (gridWaveHeight) {
+        gridWaveHeight.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            setWaveHeight(val);
+            const display = document.getElementById('gridWaveHeightValue');
+            if (display) display.textContent = val.toFixed(1);
+        });
+    }
+    
+    // Wave Speed
+    const gridWaveSpeed = document.getElementById('gridWaveSpeed');
+    if (gridWaveSpeed) {
+        gridWaveSpeed.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            setWaveSpeed(val);
+            const display = document.getElementById('gridWaveSpeedValue');
+            if (display) display.textContent = val.toFixed(1);
+        });
+    }
+    
+    // Audio Intensity
+    const gridAudioIntensity = document.getElementById('gridAudioIntensity');
+    if (gridAudioIntensity) {
+        gridAudioIntensity.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            setAudioIntensity(val);
+            const display = document.getElementById('gridAudioIntensityValue');
+            if (display) display.textContent = val.toFixed(1);
+        });
+    }
+    
+    // Use Schema Color
+    const gridUseSchemaColor = document.getElementById('gridUseSchemaColor');
+    if (gridUseSchemaColor) {
+        gridUseSchemaColor.addEventListener('change', (e) => {
+            setUseSchemaColor(e.target.checked);
+        });
+    }
+    
+    // Custom Color
+    const gridColor = document.getElementById('gridColor');
+    if (gridColor) {
+        gridColor.addEventListener('input', (e) => {
+            setGridColor(e.target.value);
+        });
+    }
+    
+    console.log('Grid Floor UI initialisiert');
 }
 
 // ============================================
@@ -719,11 +996,16 @@ window.Synaesthesia = {
     midiState,
     speechState,
     percussionState,
+    instrumentState,
     aiState,
     videoState,
     cameraInputState,
+    gridState,
     activeEffects,
     scene,
     camera,
-    renderer
+    renderer,
+    // For instrument detection
+    get analyser() { return getAnalyser(); },
+    get audioContext() { return audioContext; }
 };
