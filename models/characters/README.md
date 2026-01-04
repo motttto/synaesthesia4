@@ -1,64 +1,66 @@
-# Character Models
+# Character Models for Avatar System
 
-This folder contains rigged 3D character models for the Character Avatar feature.
+This directory contains rigged 3D character models for the Character Avatar feature.
 
-## Supported Formats
+## Included Models (CC0 - Public Domain)
 
-- **GLB** (recommended) - Binary glTF format
-- **GLTF** - Standard glTF format
+### male_base_mesh.glb ✅
+- **License:** CC0 1.0 Universal (Public Domain)
+- **Source:** [orange-juice-games](https://orange-juice-games.itch.io/male-base-mesh) via [GitHub](https://github.com/BoQsc/Godot-3D-Male-Base-Mesh)
+- **Description:** Low-poly male base mesh, fully rigged, T-Pose
+- **Triangles:** ~4,000
+- **Can redistribute:** ✅ Yes - included in repository
 
-## Requirements
+## Optional Models (Download Required)
 
-Characters must be:
-1. **Rigged with a skeleton** (bones/armature)
-2. **Using standard bone naming** (Mixamo naming convention preferred)
+The following models are NOT included due to licensing restrictions. Download them manually if desired:
 
-## How to Get Characters
+### Y-Bot / X-Bot (Mixamo)
+- **License:** Adobe Mixamo ToS (free for use, NOT for redistribution)
+- **Source:** [mixamo.com](https://www.mixamo.com/)
+- **Download:** Log in → Characters → Select Y-Bot or X-Bot → Download as FBX → Convert to GLB
+- **Save as:** `ybot.glb` or `xbot.glb`
 
-### Option 1: Mixamo (Free, Best Option)
-1. Go to [mixamo.com](https://www.mixamo.com/)
-2. Create a free Adobe account
-3. Browse characters (Y-Bot, X-Bot are the defaults)
-4. Download as **FBX for Unity** or **GLB**
-5. Place the `.glb` file here
+### Ready Player Me Avatar
+- **License:** Ready Player Me ToS (personal avatars, NOT for redistribution)
+- **Source:** [readyplayer.me](https://readyplayer.me/)
+- **Download:** Create avatar → Download GLB
+- **Save as:** `rpm-avatar.glb`
 
-### Option 2: Ready Player Me
-1. Go to [readyplayer.me](https://readyplayer.me/)
-2. Create your avatar
-3. Download as GLB
-4. Place the `.glb` file here
+## Converting FBX to GLB
 
-### Option 3: Sketchfab
-1. Search for "rigged character" on [sketchfab.com](https://sketchfab.com/)
-2. Filter by downloadable
-3. Download as GLB
-4. Place the `.glb` file here
+If you download FBX models, convert them using Blender:
 
-## Bone Naming Convention (Mixamo)
+```bash
+# Using Blender CLI
+/Applications/Blender.app/Contents/MacOS/Blender --background --python-expr "
+import bpy
+bpy.ops.import_scene.fbx(filepath='input.fbx')
+bpy.ops.export_scene.gltf(filepath='output.glb', export_format='GLB')
+"
+```
 
-The Character Avatar system expects bones named like:
-- `mixamorigHips`
-- `mixamorigSpine`, `mixamorigSpine1`, `mixamorigSpine2`
-- `mixamorigNeck`, `mixamorigHead`
-- `mixamorigLeftShoulder`, `mixamorigLeftArm`, `mixamorigLeftForeArm`
-- `mixamorigRightShoulder`, `mixamorigRightArm`, `mixamorigRightForeArm`
-- `mixamorigLeftUpLeg`, `mixamorigLeftLeg`, `mixamorigLeftFoot`
-- `mixamorigRightUpLeg`, `mixamorigRightLeg`, `mixamorigRightFoot`
+## Bone Naming Conventions
 
-## Default Characters (Download Links)
+Different model sources use different bone naming:
 
-Place these in this folder:
+| Source | Bone Prefix | Example |
+|--------|-------------|---------|
+| Mixamo | `mixamorig` | `mixamorigHips`, `mixamorigSpine` |
+| Generic | (none) | `Hips`, `Spine` |
 
-1. **ybot.glb** - Mixamo Y-Bot (male)
-2. **xbot.glb** - Mixamo X-Bot (female)
+The avatar system auto-detects bone names when loading models.
 
-## Custom Characters
+## Adding Custom Models
 
-You can also paste a direct URL to a GLB file in the UI - it will be loaded dynamically.
+1. Place your `.glb` file in this directory
+2. In the app: Select "Custom Model" from dropdown
+3. Enter the filename or full path
+4. Or use the "Custom GLB URL" field for remote models
 
-## Tips
+## Requirements for Avatar Models
 
-- Characters with T-pose work best
-- Keep file sizes reasonable (<50MB)
-- Test with simpler characters first
-- Use "Debug Skeleton" option to see bone structure
+- Must be rigged (have bones/armature)
+- Humanoid bone structure recommended
+- T-Pose or A-Pose preferred
+- GLB/GLTF format (binary GLB preferred)

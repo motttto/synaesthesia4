@@ -45,7 +45,7 @@ export const avatarState = {
     showDebugSkeleton: false,
     
     // Character Preset
-    currentPreset: 'mixamo-ybot',
+    currentPreset: 'cc0-male',
     
     // Tracking Quality
     minConfidence: 0.5,
@@ -62,87 +62,300 @@ export const avatarState = {
     blendWeight: 0.5 // Blend zwischen Tracking und Idle
 };
 
-// Bone Mapping: MediaPipe Landmark Index -> Bone Name
-// MediaPipe Pose hat 33 Landmarks
-const MEDIAPIPE_TO_BONE = {
-    // Spine & Hips
-    23: 'mixamorigHips',      // left_hip
-    24: 'mixamorigHips',      // right_hip (average for hips)
-    11: 'mixamorigSpine2',    // left_shoulder
-    12: 'mixamorigSpine2',    // right_shoulder (average for chest)
-    
-    // Head & Neck
-    0: 'mixamorigHead',       // nose
-    // 7: 'mixamorigNeck',    // left_ear (approximate neck)
-    
-    // Left Arm
-    11: 'mixamorigLeftShoulder',
-    13: 'mixamorigLeftArm',
-    15: 'mixamorigLeftForeArm',
-    // 17: 'mixamorigLeftHand',  // left_pinky
-    // 19: 'mixamorigLeftHand',  // left_index
-    
-    // Right Arm
-    12: 'mixamorigRightShoulder',
-    14: 'mixamorigRightArm',
-    16: 'mixamorigRightForeArm',
-    // 18: 'mixamorigRightHand', // right_pinky
-    // 20: 'mixamorigRightHand', // right_index
-    
-    // Left Leg
-    23: 'mixamorigLeftUpLeg',
-    25: 'mixamorigLeftLeg',
-    27: 'mixamorigLeftFoot',
-    
-    // Right Leg
-    24: 'mixamorigRightUpLeg',
-    26: 'mixamorigRightLeg',
-    28: 'mixamorigRightFoot'
+// ============================================
+// MULTI-RIG BONE MAPPINGS
+// ============================================
+
+// Universal bone names that we map TO
+const BONE_NAMES = {
+    hips: 'hips',
+    spine: 'spine',
+    spine1: 'spine1',
+    spine2: 'spine2',
+    neck: 'neck',
+    head: 'head',
+    leftShoulder: 'leftShoulder',
+    leftArm: 'leftArm',
+    leftForeArm: 'leftForeArm',
+    leftHand: 'leftHand',
+    rightShoulder: 'rightShoulder',
+    rightArm: 'rightArm',
+    rightForeArm: 'rightForeArm',
+    rightHand: 'rightHand',
+    leftUpLeg: 'leftUpLeg',
+    leftLeg: 'leftLeg',
+    leftFoot: 'leftFoot',
+    rightUpLeg: 'rightUpLeg',
+    rightLeg: 'rightLeg',
+    rightFoot: 'rightFoot'
 };
 
-// Bone Chains für IK-ähnliche Rotation
+// Rig type definitions - maps actual bone names to universal names
+const RIG_MAPPINGS = {
+    // Mixamo standard naming
+    mixamo: {
+        detect: ['mixamorigHips', 'mixamorigSpine'],
+        bones: {
+            hips: 'mixamorigHips',
+            spine: 'mixamorigSpine',
+            spine1: 'mixamorigSpine1',
+            spine2: 'mixamorigSpine2',
+            neck: 'mixamorigNeck',
+            head: 'mixamorigHead',
+            leftShoulder: 'mixamorigLeftShoulder',
+            leftArm: 'mixamorigLeftArm',
+            leftForeArm: 'mixamorigLeftForeArm',
+            leftHand: 'mixamorigLeftHand',
+            rightShoulder: 'mixamorigRightShoulder',
+            rightArm: 'mixamorigRightArm',
+            rightForeArm: 'mixamorigRightForeArm',
+            rightHand: 'mixamorigRightHand',
+            leftUpLeg: 'mixamorigLeftUpLeg',
+            leftLeg: 'mixamorigLeftLeg',
+            leftFoot: 'mixamorigLeftFoot',
+            rightUpLeg: 'mixamorigRightUpLeg',
+            rightLeg: 'mixamorigRightLeg',
+            rightFoot: 'mixamorigRightFoot'
+        }
+    },
+    
+    // Quaternius / Blender standard
+    quaternius: {
+        detect: ['Hips', 'Spine', 'UpperArm'],
+        bones: {
+            hips: 'Hips',
+            spine: 'Spine',
+            spine1: 'Spine1',
+            spine2: 'Spine2',
+            neck: 'Neck',
+            head: 'Head',
+            leftShoulder: 'LeftShoulder',
+            leftArm: 'LeftUpperArm',
+            leftForeArm: 'LeftLowerArm',
+            leftHand: 'LeftHand',
+            rightShoulder: 'RightShoulder',
+            rightArm: 'RightUpperArm',
+            rightForeArm: 'RightLowerArm',
+            rightHand: 'RightHand',
+            leftUpLeg: 'LeftUpperLeg',
+            leftLeg: 'LeftLowerLeg',
+            leftFoot: 'LeftFoot',
+            rightUpLeg: 'RightUpperLeg',
+            rightLeg: 'RightLowerLeg',
+            rightFoot: 'RightFoot'
+        }
+    },
+    
+    // Unity Humanoid / Generic
+    unity: {
+        detect: ['Hips', 'Spine', 'UpperArm_L'],
+        bones: {
+            hips: 'Hips',
+            spine: 'Spine',
+            spine1: 'Chest',
+            spine2: 'UpperChest',
+            neck: 'Neck',
+            head: 'Head',
+            leftShoulder: 'Shoulder_L',
+            leftArm: 'UpperArm_L',
+            leftForeArm: 'LowerArm_L',
+            leftHand: 'Hand_L',
+            rightShoulder: 'Shoulder_R',
+            rightArm: 'UpperArm_R',
+            rightForeArm: 'LowerArm_R',
+            rightHand: 'Hand_R',
+            leftUpLeg: 'UpperLeg_L',
+            leftLeg: 'LowerLeg_L',
+            leftFoot: 'Foot_L',
+            rightUpLeg: 'UpperLeg_R',
+            rightLeg: 'LowerLeg_R',
+            rightFoot: 'Foot_R'
+        }
+    },
+    
+    // Ready Player Me / VRM style
+    vrm: {
+        detect: ['hips', 'spine', 'leftUpperArm'],
+        bones: {
+            hips: 'hips',
+            spine: 'spine',
+            spine1: 'chest',
+            spine2: 'upperChest',
+            neck: 'neck',
+            head: 'head',
+            leftShoulder: 'leftShoulder',
+            leftArm: 'leftUpperArm',
+            leftForeArm: 'leftLowerArm',
+            leftHand: 'leftHand',
+            rightShoulder: 'rightShoulder',
+            rightArm: 'rightUpperArm',
+            rightForeArm: 'rightLowerArm',
+            rightHand: 'rightHand',
+            leftUpLeg: 'leftUpperLeg',
+            leftLeg: 'leftLowerLeg',
+            leftFoot: 'leftFoot',
+            rightUpLeg: 'rightUpperLeg',
+            rightLeg: 'rightLowerLeg',
+            rightFoot: 'rightFoot'
+        }
+    },
+    
+    // Blender Rigify
+    rigify: {
+        detect: ['spine', 'spine.001', 'upper_arm'],
+        bones: {
+            hips: 'spine',
+            spine: 'spine.001',
+            spine1: 'spine.002',
+            spine2: 'spine.003',
+            neck: 'spine.004',
+            head: 'spine.005',
+            leftShoulder: 'shoulder.L',
+            leftArm: 'upper_arm.L',
+            leftForeArm: 'forearm.L',
+            leftHand: 'hand.L',
+            rightShoulder: 'shoulder.R',
+            rightArm: 'upper_arm.R',
+            rightForeArm: 'forearm.R',
+            rightHand: 'hand.R',
+            leftUpLeg: 'thigh.L',
+            leftLeg: 'shin.L',
+            leftFoot: 'foot.L',
+            rightUpLeg: 'thigh.R',
+            rightLeg: 'shin.R',
+            rightFoot: 'foot.R'
+        }
+    }
+};
+
+// Current detected rig type
+let currentRigType = 'mixamo';
+let boneMapping = {}; // Maps universal names to actual bone objects
+
+/**
+ * Auto-detect rig type from bone names
+ */
+function detectRigType(boneNames) {
+    for (const [rigType, config] of Object.entries(RIG_MAPPINGS)) {
+        const matches = config.detect.filter(name => 
+            boneNames.some(bn => bn.includes(name) || bn === name)
+        );
+        if (matches.length >= 2) {
+            console.log(`[Avatar] Detected rig type: ${rigType} (matched: ${matches.join(', ')})`);
+            return rigType;
+        }
+    }
+    console.log('[Avatar] Could not detect rig type, trying fuzzy match...');
+    return fuzzyDetectRig(boneNames);
+}
+
+/**
+ * Fuzzy rig detection for non-standard naming
+ */
+function fuzzyDetectRig(boneNames) {
+    const lower = boneNames.map(n => n.toLowerCase());
+    
+    // Check for common patterns
+    if (lower.some(n => n.includes('mixamo'))) return 'mixamo';
+    if (lower.some(n => n.includes('upperarm') && n.includes('left'))) return 'quaternius';
+    if (lower.some(n => n.includes('_l') || n.includes('_r'))) return 'unity';
+    if (lower.some(n => n.includes('thigh') && n.includes('.l'))) return 'rigify';
+    
+    // Default fallback
+    return 'vrm';
+}
+
+/**
+ * Build bone mapping from detected rig type
+ */
+function buildBoneMapping(bones, rigType) {
+    const mapping = {};
+    const rigConfig = RIG_MAPPINGS[rigType];
+    
+    if (!rigConfig) {
+        console.warn(`[Avatar] Unknown rig type: ${rigType}`);
+        return mapping;
+    }
+    
+    for (const [universal, actual] of Object.entries(rigConfig.bones)) {
+        // Direct match
+        if (bones[actual]) {
+            mapping[universal] = bones[actual];
+        } else {
+            // Try case-insensitive match
+            const found = Object.entries(bones).find(([name]) => 
+                name.toLowerCase() === actual.toLowerCase()
+            );
+            if (found) {
+                mapping[universal] = found[1];
+            }
+        }
+    }
+    
+    console.log(`[Avatar] Bone mapping built: ${Object.keys(mapping).length}/${Object.keys(rigConfig.bones).length} bones mapped`);
+    return mapping;
+}
+
+/**
+ * Get mapped bone by universal name
+ */
+function getBone(universalName) {
+    return boneMapping[universalName] || null;
+}
+
+// Bone Chains für IK-ähnliche Rotation (using universal names now)
 const BONE_CHAINS = {
     leftArm: {
         joints: [11, 13, 15],
-        bones: ['mixamorigLeftShoulder', 'mixamorigLeftArm', 'mixamorigLeftForeArm']
+        bones: ['leftShoulder', 'leftArm', 'leftForeArm']
     },
     rightArm: {
         joints: [12, 14, 16],
-        bones: ['mixamorigRightShoulder', 'mixamorigRightArm', 'mixamorigRightForeArm']
+        bones: ['rightShoulder', 'rightArm', 'rightForeArm']
     },
     leftLeg: {
         joints: [23, 25, 27],
-        bones: ['mixamorigLeftUpLeg', 'mixamorigLeftLeg', 'mixamorigLeftFoot']
+        bones: ['leftUpLeg', 'leftLeg', 'leftFoot']
     },
     rightLeg: {
         joints: [24, 26, 28],
-        bones: ['mixamorigRightUpLeg', 'mixamorigRightLeg', 'mixamorigRightFoot']
+        bones: ['rightUpLeg', 'rightLeg', 'rightFoot']
     },
     spine: {
         joints: [23, 24, 11, 12, 0], // hips -> shoulders -> nose
-        bones: ['mixamorigHips', 'mixamorigSpine', 'mixamorigSpine1', 'mixamorigSpine2', 'mixamorigNeck', 'mixamorigHead']
+        bones: ['hips', 'spine', 'spine1', 'spine2', 'neck', 'head']
     }
 };
 
 // Character Presets (URLs zu GLB Dateien)
 const CHARACTER_PRESETS = {
+    'cc0-male': {
+        name: '👤 Male Base (CC0)',
+        url: 'models/characters/male_base_mesh.glb',
+        bonePrefix: '',
+        scale: 1.0,
+        license: 'CC0 - Public Domain'
+    },
     'mixamo-ybot': {
         name: 'Y-Bot (Mixamo)',
         url: 'models/characters/ybot.glb',
         bonePrefix: 'mixamorig',
-        scale: 0.01
+        scale: 0.01,
+        license: 'Mixamo ToS - not for redistribution'
     },
     'mixamo-xbot': {
         name: 'X-Bot (Mixamo)',
         url: 'models/characters/xbot.glb',
         bonePrefix: 'mixamorig',
-        scale: 0.01
+        scale: 0.01,
+        license: 'Mixamo ToS - not for redistribution'
     },
     'readyplayerme': {
         name: 'Ready Player Me',
         url: 'models/characters/rpm-avatar.glb',
         bonePrefix: '',
-        scale: 1.0
+        scale: 1.0,
+        license: 'RPM ToS - not for redistribution'
     },
     'custom': {
         name: 'Custom Model',
@@ -290,21 +503,17 @@ function loadGLTF(url) {
 }
 
 /**
- * Findet alle Bones im Modell
+ * Findet alle Bones im Modell und baut universelles Mapping
  */
 function findBones(model, prefix = '') {
     avatarState.bones = {};
+    const boneNames = [];
     
+    // Erst alle Bones sammeln
     model.traverse((child) => {
         if (child.isBone) {
-            let name = child.name;
-            
-            // Prefix entfernen falls vorhanden
-            if (prefix && name.startsWith(prefix)) {
-                name = name; // Keep full name for mapping
-            }
-            
             avatarState.bones[child.name] = child;
+            boneNames.push(child.name);
             
             // Initial Rotation speichern für Smoothing
             avatarState.smoothedBones[child.name] = {
@@ -314,7 +523,25 @@ function findBones(model, prefix = '') {
         }
     });
     
-    console.log('[Avatar] Found bones:', Object.keys(avatarState.bones));
+    console.log('[Avatar] Found bones:', boneNames);
+    
+    // Rig-Typ erkennen
+    currentRigType = detectRigType(boneNames);
+    
+    // Universelles Bone-Mapping aufbauen
+    boneMapping = buildBoneMapping(avatarState.bones, currentRigType);
+    
+    // Smoothed bones für universelle Namen initialisieren
+    for (const [universal, bone] of Object.entries(boneMapping)) {
+        if (!avatarState.smoothedBones[universal]) {
+            avatarState.smoothedBones[universal] = {
+                quaternion: bone.quaternion.clone(),
+                position: bone.position.clone()
+            };
+        }
+    }
+    
+    console.log(`[Avatar] Rig type: ${currentRigType}, Mapped bones: ${Object.keys(boneMapping).join(', ')}`);
 }
 
 /**
@@ -414,7 +641,7 @@ export function updateAvatarPose(deltaTime = 0.016) {
  * Hips Position aus Tracking
  */
 function updateHipsPosition(landmarks) {
-    const hipsBone = avatarState.bones['mixamorigHips'];
+    const hipsBone = getBone('hips');
     if (!hipsBone) return;
     
     const leftHip = landmarks[23];
@@ -452,10 +679,10 @@ function updateHipsPosition(landmarks) {
  * Spine Rotation basierend auf Schulter-Hüft Ausrichtung
  */
 function updateSpineRotation(landmarks) {
-    const hipsBone = avatarState.bones['mixamorigHips'];
-    const spineBone = avatarState.bones['mixamorigSpine'];
-    const spine1Bone = avatarState.bones['mixamorigSpine1'];
-    const spine2Bone = avatarState.bones['mixamorigSpine2'];
+    const hipsBone = getBone('hips');
+    const spineBone = getBone('spine');
+    const spine1Bone = getBone('spine1');
+    const spine2Bone = getBone('spine2');
     
     const leftShoulder = landmarks[11];
     const rightShoulder = landmarks[12];
@@ -497,8 +724,8 @@ function updateSpineRotation(landmarks) {
  * Head Rotation basierend auf Nose Position
  */
 function updateHeadRotation(landmarks) {
-    const headBone = avatarState.bones['mixamorigHead'];
-    const neckBone = avatarState.bones['mixamorigNeck'];
+    const headBone = getBone('head');
+    const neckBone = getBone('neck');
     if (!headBone) return;
     
     const nose = landmarks[0];
@@ -537,7 +764,6 @@ function updateHeadRotation(landmarks) {
  */
 function updateArmChain(side, landmarks) {
     const isLeft = side === 'left';
-    const prefix = isLeft ? 'Left' : 'Right';
     
     const shoulderIdx = isLeft ? 11 : 12;
     const elbowIdx = isLeft ? 13 : 14;
@@ -550,9 +776,9 @@ function updateArmChain(side, landmarks) {
     if (!shoulder || !elbow || !wrist) return;
     if ((shoulder.visibility || 1) < avatarState.minConfidence) return;
     
-    const shoulderBone = avatarState.bones[`mixamorig${prefix}Shoulder`];
-    const armBone = avatarState.bones[`mixamorig${prefix}Arm`];
-    const foreArmBone = avatarState.bones[`mixamorig${prefix}ForeArm`];
+    const shoulderBone = getBone(isLeft ? 'leftShoulder' : 'rightShoulder');
+    const armBone = getBone(isLeft ? 'leftArm' : 'rightArm');
+    const foreArmBone = getBone(isLeft ? 'leftForeArm' : 'rightForeArm');
     
     // Oberarm Rotation (Shoulder -> Elbow)
     if (armBone) {
@@ -592,7 +818,6 @@ function updateArmChain(side, landmarks) {
  */
 function updateLegChain(side, landmarks) {
     const isLeft = side === 'left';
-    const prefix = isLeft ? 'Left' : 'Right';
     
     const hipIdx = isLeft ? 23 : 24;
     const kneeIdx = isLeft ? 25 : 26;
@@ -605,9 +830,9 @@ function updateLegChain(side, landmarks) {
     if (!hip || !knee || !ankle) return;
     if ((hip.visibility || 1) < avatarState.minConfidence) return;
     
-    const upLegBone = avatarState.bones[`mixamorig${prefix}UpLeg`];
-    const legBone = avatarState.bones[`mixamorig${prefix}Leg`];
-    const footBone = avatarState.bones[`mixamorig${prefix}Foot`];
+    const upLegBone = getBone(isLeft ? 'leftUpLeg' : 'rightUpLeg');
+    const legBone = getBone(isLeft ? 'leftLeg' : 'rightLeg');
+    const footBone = getBone(isLeft ? 'leftFoot' : 'rightFoot');
     
     // Oberschenkel Rotation
     if (upLegBone) {
