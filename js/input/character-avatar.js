@@ -194,6 +194,7 @@ export async function loadCharacter(presetOrUrl) {
     
     if (!url) {
         console.warn('[Avatar] No URL provided');
+        updateAvatarStatus('error', 'No URL');
         return false;
     }
     
@@ -256,7 +257,28 @@ export async function loadCharacter(presetOrUrl) {
         
     } catch (err) {
         console.error('[Avatar] Load failed:', err);
-        updateAvatarStatus('error', err.message);
+        
+        // Check if it's a preset model that needs to be downloaded
+        if (err.message?.includes('fetch') || err.message?.includes('Failed')) {
+            const isPreset = ['mixamo-ybot', 'mixamo-xbot', 'readyplayerme'].includes(avatarState.currentPreset);
+            if (isPreset) {
+                const presetName = CHARACTER_PRESETS[avatarState.currentPreset]?.name || avatarState.currentPreset;
+                updateAvatarStatus('error', `${presetName} not found`);
+                
+                // Show alert with download instructions
+                alert(`⚠️ Character model not found!\n\n` +
+                    `"${presetName}" needs to be downloaded and placed in:\n` +
+                    `models/characters/\n\n` +
+                    `Download from:\n` +
+                    `• Mixamo: mixamo.com (Y-Bot, X-Bot)\n` +
+                    `• Ready Player Me: readyplayer.me\n\n` +
+                    `Or use "Custom" and paste a GLB URL.`);
+            } else {
+                updateAvatarStatus('error', 'File not found');
+            }
+        } else {
+            updateAvatarStatus('error', err.message);
+        }
         return false;
     }
 }
