@@ -98,6 +98,10 @@ import {
 import {
     dmxState, initDMXUI, setDMXColor, setDMXAudioLevel, triggerDMXBeat
 } from './output/dmx-output.js';
+import {
+    avatarState, initAvatarUI, updateAvatarPose, loadCharacter,
+    setAvatarEnabled, setAvatarScale, setAvatarSmoothing, setAvatarMirror
+} from './input/character-avatar.js';
 
 // Analysis
 import { analyzeIntervals, detectChord, defaultAnalysis } from './analysis/intervals.js';
@@ -544,6 +548,11 @@ function animate() {
         updateCameraTexture();
     }
     
+    // Character Avatar Update (Skeleton -> 3D Character)
+    if (avatarState.enabled) {
+        updateAvatarPose(deltaTime);
+    }
+    
     // Stream Capture wird vom Background Loop gehandelt (setInterval)
     // damit es auch läuft wenn die App nicht im Fokus ist
 }
@@ -598,6 +607,7 @@ async function init() {
     initVideoUI();
     initCameraInputUI();
     initDMXUI();
+    initAvatarUI();
     
     // Lyrics -> AI Prompt Integration
     onLyricsLine((line) => {

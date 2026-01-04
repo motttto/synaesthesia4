@@ -1157,6 +1157,110 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- 🎭 Character Avatar -->
+                    <div style="margin-top: 4px; padding: 4px; background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 3px; border: 1px solid #4a4aff;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span style="font-size: 8px; color: #88f; font-weight: bold;">🎭 Character Avatar</span>
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <span id="avatarStatus" style="font-size: 7px; color: #666;">⚫ Disabled</span>
+                                <button id="avatarVisibilityBtn" class="reset-btn" style="margin: 0; padding: 2px 6px; font-size: 8px;" title="Show/Hide">👁</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Character Select -->
+                        <div style="margin-bottom: 4px;">
+                            <label style="font-size: 7px; color: #888;">Character</label>
+                            <select id="avatarCharacterSelect" style="margin-top: 2px; width: 100%;">
+                                <option value="">-- Select Character --</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Custom URL -->
+                        <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+                            <input type="text" id="avatarCustomUrl" placeholder="Custom GLB URL..." style="flex: 1; font-size: 7px; padding: 3px; background: #111; border: 1px solid #333; border-radius: 3px; color: #aaa;">
+                            <button id="avatarLoadCustom" class="reset-btn" style="margin: 0; padding: 3px 6px; font-size: 7px;">📂</button>
+                        </div>
+                        
+                        <!-- Enable & Tracking Source -->
+                        <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+                            <label class="interaction-mode" style="margin: 0;">
+                                <input type="checkbox" id="avatarEnabled">
+                                <span style="font-size: 8px; color: #ccc;">Enable</span>
+                            </label>
+                            <div style="flex: 1;">
+                                <select id="avatarTrackingSource" style="width: 100%; font-size: 7px;">
+                                    <option value="mediapipe">MediaPipe</option>
+                                    <option value="movenet-lightning">MoveNet Fast</option>
+                                    <option value="movenet-thunder">MoveNet Accurate</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Scale & Smoothing -->
+                        <div class="slider-group" style="margin-bottom: 4px;">
+                            <label style="font-size: 7px;">Scale</label>
+                            <div class="slider-row">
+                                <input type="range" id="avatarScale" min="0.5" max="10" step="0.5" value="3">
+                                <span id="avatarScaleValue" style="font-size: 8px;">3.0</span>
+                            </div>
+                        </div>
+                        <div class="slider-group" style="margin-bottom: 4px;">
+                            <label style="font-size: 7px;">Smoothing</label>
+                            <div class="slider-row">
+                                <input type="range" id="avatarSmoothing" min="0" max="95" value="30">
+                                <span id="avatarSmoothingValue" style="font-size: 8px;">30%</span>
+                            </div>
+                        </div>
+                        <div class="slider-group" style="margin-bottom: 4px;">
+                            <label style="font-size: 7px;">Height (Y)</label>
+                            <div class="slider-row">
+                                <input type="range" id="avatarPositionY" min="-10" max="5" step="0.5" value="-3">
+                                <span id="avatarPositionYValue" style="font-size: 8px;">-3</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Options -->
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                            <label class="interaction-mode" style="margin: 0;">
+                                <input type="checkbox" id="avatarMirror" checked>
+                                <span style="font-size: 7px; color: #ccc;">Mirror</span>
+                            </label>
+                            <label class="interaction-mode" style="margin: 0;">
+                                <input type="checkbox" id="avatarDebugSkeleton">
+                                <span style="font-size: 7px; color: #ccc;">Debug</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Body Part Toggles -->
+                        <details style="margin-top: 6px;">
+                            <summary style="font-size: 7px; color: #888; cursor: pointer;">🦴 Body Parts</summary>
+                            <div style="padding: 4px; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                                <label class="interaction-mode" style="margin: 0;">
+                                    <input type="checkbox" id="avatarArms" checked>
+                                    <span style="font-size: 7px; color: #ccc;">Arms</span>
+                                </label>
+                                <label class="interaction-mode" style="margin: 0;">
+                                    <input type="checkbox" id="avatarLegs" checked>
+                                    <span style="font-size: 7px; color: #ccc;">Legs</span>
+                                </label>
+                                <label class="interaction-mode" style="margin: 0;">
+                                    <input type="checkbox" id="avatarSpine" checked>
+                                    <span style="font-size: 7px; color: #ccc;">Spine</span>
+                                </label>
+                                <label class="interaction-mode" style="margin: 0;">
+                                    <input type="checkbox" id="avatarHead" checked>
+                                    <span style="font-size: 7px; color: #ccc;">Head</span>
+                                </label>
+                                <label class="interaction-mode" style="margin: 0;">
+                                    <input type="checkbox" id="avatarFingers">
+                                    <span style="font-size: 7px; color: #ccc;">Fingers</span>
+                                </label>
+                            </div>
+                        </details>
+                        
+                        <div style="font-size: 6px; color: #555; margin-top: 6px; text-align: center;">Supports Mixamo rigged GLB models</div>
+                    </div>
                 </div>
             </div>
         </div>
