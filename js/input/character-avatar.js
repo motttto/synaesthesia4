@@ -236,15 +236,28 @@ let boneMapping = {}; // Maps universal names to actual bone objects
  * Auto-detect rig type from bone names
  */
 function detectRigType(boneNames) {
+    // First try exact matches
     for (const [rigType, config] of Object.entries(RIG_MAPPINGS)) {
         const matches = config.detect.filter(name => 
-            boneNames.some(bn => bn.includes(name) || bn === name)
+            boneNames.some(bn => bn === name)
         );
         if (matches.length >= 2) {
-            console.log(`[Avatar] Detected rig type: ${rigType} (matched: ${matches.join(', ')})`);
+            console.log(`[Avatar] Detected rig type: ${rigType} (exact match: ${matches.join(', ')})`);
             return rigType;
         }
     }
+    
+    // Then try partial matches
+    for (const [rigType, config] of Object.entries(RIG_MAPPINGS)) {
+        const matches = config.detect.filter(name => 
+            boneNames.some(bn => bn.toLowerCase().includes(name.toLowerCase()))
+        );
+        if (matches.length >= 2) {
+            console.log(`[Avatar] Detected rig type: ${rigType} (partial match: ${matches.join(', ')})`);
+            return rigType;
+        }
+    }
+    
     console.log('[Avatar] Could not detect rig type, trying fuzzy match...');
     return fuzzyDetectRig(boneNames);
 }
@@ -271,6 +284,7 @@ function fuzzyDetectRig(boneNames) {
 function buildBoneMapping(bones, rigType) {
     const mapping = {};
     const rigConfig = RIG_MAPPINGS[rigType];
+    const boneNames = Object.keys(bones);
     
     if (!rigConfig) {
         console.warn(`[Avatar] Unknown rig type: ${rigType}`);
@@ -281,19 +295,62 @@ function buildBoneMapping(bones, rigType) {
         // Direct match
         if (bones[actual]) {
             mapping[universal] = bones[actual];
-        } else {
-            // Try case-insensitive match
-            const found = Object.entries(bones).find(([name]) => 
-                name.toLowerCase() === actual.toLowerCase()
-            );
-            if (found) {
-                mapping[universal] = found[1];
-            }
+            continue;
+        }
+        
+        // Case-insensitive exact match
+        const exactMatch = boneNames.find(name => 
+            name.toLowerCase() === actual.toLowerCase()
+        );
+        if (exactMatch) {
+            mapping[universal] = bones[exactMatch];
+            continue;
+        }
+        
+        // Fuzzy match: look for bones containing key parts of the name
+        const keywords = getKeywordsForBone(universal);
+        const fuzzyMatch = boneNames.find(name => {
+            const lowerName = name.toLowerCase();
+            return keywords.some(kw => lowerName.includes(kw));
+        });
+        if (fuzzyMatch && !Object.values(mapping).includes(bones[fuzzyMatch])) {
+            mapping[universal] = bones[fuzzyMatch];
+            console.log(`[Avatar] Fuzzy matched: ${universal} -> ${fuzzyMatch}`);
         }
     }
     
     console.log(`[Avatar] Bone mapping built: ${Object.keys(mapping).length}/${Object.keys(rigConfig.bones).length} bones mapped`);
     return mapping;
+}
+
+/**
+ * Get keywords for fuzzy bone matching
+ */
+function getKeywordsForBone(universalName) {
+    const keywordMap = {
+        hips: ['hip', 'pelvis', 'root'],
+        spine: ['spine', 'torso'],
+        spine1: ['spine1', 'spine.001', 'chest'],
+        spine2: ['spine2', 'spine.002', 'upperchest'],
+        neck: ['neck'],
+        head: ['head', 'skull'],
+        leftShoulder: ['shoulder', 'clavicle'].map(k => 'left' + k).concat(['l_shoulder', 'l.shoulder', 'shoulder.l', 'shoulder_l']),
+        leftArm: ['leftarm', 'leftupper', 'l_arm', 'upper_arm.l', 'upperarm_l', 'l.upper'],
+        leftForeArm: ['leftfore', 'leftlower', 'l_forearm', 'forearm.l', 'lowerarm_l', 'l.lower', 'l.fore'],
+        leftHand: ['lefthand', 'l_hand', 'hand.l', 'hand_l'],
+        rightShoulder: ['shoulder', 'clavicle'].map(k => 'right' + k).concat(['r_shoulder', 'r.shoulder', 'shoulder.r', 'shoulder_r']),
+        rightArm: ['rightarm', 'rightupper', 'r_arm', 'upper_arm.r', 'upperarm_r', 'r.upper'],
+        rightForeArm: ['rightfore', 'rightlower', 'r_forearm', 'forearm.r', 'lowerarm_r', 'r.lower', 'r.fore'],
+        rightHand: ['righthand', 'r_hand', 'hand.r', 'hand_r'],
+        leftUpLeg: ['leftup', 'leftthigh', 'l_thigh', 'thigh.l', 'upperleg_l', 'l.thigh', 'l.up'],
+        leftLeg: ['leftshin', 'leftleg', 'leftlower', 'l_shin', 'shin.l', 'lowerleg_l', 'l.shin', 'l.leg', 'calf.l'],
+        leftFoot: ['leftfoot', 'l_foot', 'foot.l', 'foot_l'],
+        rightUpLeg: ['rightup', 'rightthigh', 'r_thigh', 'thigh.r', 'upperleg_r', 'r.thigh', 'r.up'],
+        rightLeg: ['rightshin', 'rightleg', 'rightlower', 'r_shin', 'shin.r', 'lowerleg_r', 'r.shin', 'r.leg', 'calf.r'],
+        rightFoot: ['rightfoot', 'r_foot', 'foot.r', 'foot_r']
+    };
+    
+    return keywordMap[universalName] || [universalName.toLowerCase()];
 }
 
 /**
@@ -529,6 +586,10 @@ function findBones(model, prefix = '') {
     });
     
     console.log('[Avatar] Found bones:', boneNames);
+    
+    // DEBUG: Show all bone names for mapping
+    console.log('[Avatar] All bone names for mapping reference:');
+    boneNames.forEach(name => console.log(`  - "${name}"`));
     
     // Rig-Typ erkennen
     currentRigType = detectRigType(boneNames);
