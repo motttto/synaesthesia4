@@ -44,7 +44,7 @@ export const avatarState = {
     showAvatar: true,
     showDebugSkeleton: false,
     
-    // Character Preset
+    // Character Preset (default to CC0 model which is included)
     currentPreset: 'cc0-male',
     
     // Tracking Quality
@@ -330,38 +330,43 @@ const BONE_CHAINS = {
 // Character Presets (URLs zu GLB Dateien)
 const CHARACTER_PRESETS = {
     'cc0-male': {
-        name: '👤 Male Base (CC0)',
+        name: '✅ Male Base (CC0 - included)',
         url: 'models/characters/male_base_mesh.glb',
         bonePrefix: '',
         scale: 1.0,
-        license: 'CC0 - Public Domain'
+        license: 'CC0 - Public Domain',
+        description: 'Low-poly rigged male, ready to use'
     },
     'mixamo-ybot': {
-        name: 'Y-Bot (Mixamo)',
+        name: '⚠️ Y-Bot (download required)',
         url: 'models/characters/ybot.glb',
         bonePrefix: 'mixamorig',
         scale: 0.01,
-        license: 'Mixamo ToS - not for redistribution'
+        license: 'Mixamo ToS',
+        description: 'Download from mixamo.com'
     },
     'mixamo-xbot': {
-        name: 'X-Bot (Mixamo)',
+        name: '⚠️ X-Bot (download required)',
         url: 'models/characters/xbot.glb',
         bonePrefix: 'mixamorig',
         scale: 0.01,
-        license: 'Mixamo ToS - not for redistribution'
+        license: 'Mixamo ToS',
+        description: 'Download from mixamo.com'
     },
     'readyplayerme': {
-        name: 'Ready Player Me',
+        name: '⚠️ Ready Player Me (download)',
         url: 'models/characters/rpm-avatar.glb',
         bonePrefix: '',
         scale: 1.0,
-        license: 'RPM ToS - not for redistribution'
+        license: 'RPM ToS',
+        description: 'Create at readyplayer.me'
     },
     'custom': {
-        name: 'Custom Model',
+        name: '📂 Custom GLB Model',
         url: '',
         bonePrefix: '',
-        scale: 1.0
+        scale: 1.0,
+        description: 'Load your own rigged model'
     }
 };
 
