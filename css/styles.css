@@ -2055,3 +2055,148 @@ body.panels-collapsed #streamStatus {
 #lyricsContainer::-webkit-scrollbar-thumb:hover {
     background: #48f;
 }
+
+/* === DMX FIXTURE LIBRARY STYLES === */
+
+/* Fixture Item in Panel */
+.dmx-fixture-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 6px;
+    background: #1a1a1a;
+    border-radius: 3px;
+    margin-bottom: 3px;
+    border-left: 2px solid #333;
+    transition: all 0.15s ease;
+}
+
+.dmx-fixture-item:hover {
+    background: #222;
+    border-left-color: #4af;
+}
+
+.fixture-enabled {
+    color: #333;
+    cursor: pointer;
+    font-size: 8px;
+    transition: color 0.15s;
+}
+
+.fixture-enabled.active {
+    color: #4f4;
+    text-shadow: 0 0 4px #4f4;
+}
+
+.fixture-enabled:hover {
+    color: #4af;
+}
+
+/* Fixture Library Modal */
+.fixture-view-btn {
+    flex: 1;
+    padding: 6px 8px;
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 3px;
+    color: #888;
+    font-size: 9px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.fixture-view-btn:hover {
+    background: #2a2a2a;
+    color: #aaa;
+}
+
+.fixture-view-btn.active {
+    background: #333;
+    border-color: #4af;
+    color: #fff;
+}
+
+/* Category/Manufacturer List Item */
+.fixture-category-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    margin-bottom: 2px;
+    font-size: 10px;
+    color: #ccc;
+    transition: all 0.15s;
+}
+
+.fixture-category-item:hover {
+    background: #252525;
+}
+
+.fixture-category-item.selected {
+    background: #2a3a4a;
+    color: #4af;
+}
+
+/* Fixture List Item */
+.fixture-list-item {
+    padding: 8px 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    margin-bottom: 2px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+}
+
+.fixture-list-item:hover {
+    background: #252525;
+    border-left-color: #444;
+}
+
+.fixture-list-item.selected {
+    background: #2a3a4a;
+    border-left-color: #4af;
+}
+
+/* Scrollbar for fixture lists */
+#fixtureCategoryList::-webkit-scrollbar,
+#fixtureList::-webkit-scrollbar,
+#fixtureDetails::-webkit-scrollbar,
+#dmxFixtureList::-webkit-scrollbar {
+    width: 4px;
+}
+
+#fixtureCategoryList::-webkit-scrollbar-track,
+#fixtureList::-webkit-scrollbar-track,
+#fixtureDetails::-webkit-scrollbar-track,
+#dmxFixtureList::-webkit-scrollbar-track {
+    background: #111;
+}
+
+#fixtureCategoryList::-webkit-scrollbar-thumb,
+#fixtureList::-webkit-scrollbar-thumb,
+#fixtureDetails::-webkit-scrollbar-thumb,
+#dmxFixtureList::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 2px;
+}
+
+#fixtureCategoryList::-webkit-scrollbar-thumb:hover,
+#fixtureList::-webkit-scrollbar-thumb:hover,
+#fixtureDetails::-webkit-scrollbar-thumb:hover,
+#dmxFixtureList::-webkit-scrollbar-thumb:hover {
+    background: #4af;
+}
+
+/* DMX Blackout Button */
+#dmxBlackout.active {
+    background: #f00 !important;
+    color: #fff;
+    animation: blackout-pulse 0.5s ease infinite alternate;
+}
+
+@keyframes blackout-pulse {
+    from { box-shadow: 0 0 5px #f00; }
+    to { box-shadow: 0 0 15px #f00; }
+}

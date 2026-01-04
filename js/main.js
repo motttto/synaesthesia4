@@ -94,6 +94,11 @@ import {
     getMappedPosition, skeletonState
 } from './input/camera-input.js';
 
+// Output
+import {
+    dmxState, initDMXUI, setDMXColor, setDMXAudioLevel, triggerDMXBeat
+} from './output/dmx-output.js';
+
 // Analysis
 import { analyzeIntervals, detectChord, defaultAnalysis } from './analysis/intervals.js';
 import { 
@@ -356,12 +361,22 @@ function animate() {
     // Audio-Level aktualisieren
     const audioLevel = updateLevelMeter() || 0;
     
+    // DMX Audio Level senden
+    if (dmxState.enabled && dmxState.audioToDimmer) {
+        setDMXAudioLevel(audioLevel);
+    }
+    
     // MIDI hat Priorität
     if (midiState.enabled && getMidiNotes().length > 0) {
         const midiNotesList = getMidiNotes();
         const analysis = analyzeIntervals(midiNotesList);
         updateUI(midiNotesList, analysis);
         applyColors(analysis);
+        // DMX Farben senden
+        if (dmxState.enabled && colorCalcState.lastColor) {
+            const c = colorCalcState.lastColor;
+            setDMXColor((c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff);
+        }
     } 
     // Pitch Detection
     else if (pitchDetector && isRunning) {
@@ -375,6 +390,11 @@ function animate() {
             const analysis = analyzeIntervals(notes);
             updateUI(notes, analysis);
             applyColors(analysis);
+            // DMX Farben senden
+            if (dmxState.enabled && colorCalcState.lastColor) {
+                const c = colorCalcState.lastColor;
+                setDMXColor((c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff);
+            }
         } else if (effectState.gainLinked && colorCalcState.lastAnalysis) {
             applyColors(colorCalcState.lastAnalysis);
         }
@@ -397,6 +417,7 @@ function animate() {
         const beatDetected = detectBeat(analyser);
         if (beatDetected) {
             triggerBeatEffects();
+            triggerDMXBeat();  // DMX Strobe on Beat
             // AI Image BPM Sync
             if (beatState.currentBpm > 0) {
                 onAiBeat(beatState.currentBpm);
@@ -576,6 +597,7 @@ async function init() {
     initIntervalModal();
     initVideoUI();
     initCameraInputUI();
+    initDMXUI();
     
     // Lyrics -> AI Prompt Integration
     onLyricsLine((line) => {
@@ -1015,6 +1037,7 @@ window.Synaesthesia = {
     videoState,
     cameraInputState,
     gridState,
+    dmxState,
     activeEffects,
     scene,
     camera,
