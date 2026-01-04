@@ -956,6 +956,24 @@ export function initInstrumentUI() {
         });
     }
     
+    // Refresh/Re-analyze button
+    const refreshBtn = document.getElementById('instrumentRefreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            if (instrumentState.running) {
+                console.log('🔄 Re-analyzing instrument...');
+                // Reset dominant instrument to force fresh detection
+                instrumentState.dominantInstrument = null;
+                instrumentState.dominantInstrumentEN = null;
+                instrumentState.confidence = 0;
+                updateDisplay(null);
+                updateStatus('🔄 Re-analyzing...');
+            } else {
+                console.log('⚠️ Instrument detection not running');
+            }
+        });
+    }
+    
     console.log('🎸 Instrument Detection UI initialized');
 }
 

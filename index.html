@@ -236,7 +236,10 @@
             <div style="margin-top: 6px; padding: 4px; background: #111; border-radius: 3px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span id="detectedInstrument" style="font-size: 12px; font-weight: bold; color: #4af;">-</span>
-                    <span id="instrumentConfidence" style="font-size: 10px; color: #666;"></span>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <span id="instrumentConfidence" style="font-size: 10px; color: #666;"></span>
+                        <button id="instrumentRefreshBtn" class="reset-btn" style="margin: 0; padding: 2px 4px; font-size: 8px;" title="Re-analyze">🔄</button>
+                    </div>
                 </div>
                 <div id="instrumentSecondary" style="font-size: 7px; color: #666; margin-top: 2px;">-</div>
             </div>
@@ -339,41 +342,6 @@
         <div class="panel">
             <h3><span>Debug</span><span class="minimize-btn">▼</span></h3>
             <div id="debugInfo"></div>
-        </div>
-        
-        <!-- AI Prompt Debug -->
-        <div class="panel" id="panelAiPromptDebug">
-            <h3><span>🔍 AI Prompt</span><span class="minimize-btn">▼</span></h3>
-            <div class="panel-content">
-                <!-- Speech Buffer Timeout Slider -->
-                <div class="slider-group" style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #333;">
-                    <label style="font-size: 7px;">Speech Buffer Timeout</label>
-                    <div class="slider-row">
-                        <input type="range" id="speechBufferTimeout" min="1000" max="10000" step="500" value="3000">
-                        <span id="speechBufferTimeoutValue" style="font-size: 8px;">3.0s</span>
-                    </div>
-                    <div style="font-size: 6px; color: #666;">Auto-clear nach Stille</div>
-                </div>
-                
-                <div style="font-size: 7px; color: #888; margin-bottom: 2px;">Base Prompt (Speech/Manual):</div>
-                <div id="aiDebugBasePrompt" style="font-size: 8px; color: #ff8; padding: 4px; background: #111; border-radius: 3px; min-height: 20px; word-break: break-all; max-height: 60px; overflow-y: auto;">-</div>
-                
-                <div style="font-size: 7px; color: #888; margin-top: 4px; margin-bottom: 2px;">+ Instrument:</div>
-                <div id="aiDebugInstrument" style="font-size: 8px; color: #4af; padding: 4px; background: #111; border-radius: 3px; min-height: 16px;">-</div>
-                
-                <div style="font-size: 7px; color: #888; margin-top: 4px; margin-bottom: 2px;">+ Modifiers:</div>
-                <div id="aiDebugModifiers" style="font-size: 8px; color: #a4f; padding: 4px; background: #111; border-radius: 3px; min-height: 16px; word-break: break-all; max-height: 40px; overflow-y: auto;">-</div>
-                
-                <div style="font-size: 7px; color: #4f4; margin-top: 6px; margin-bottom: 2px; font-weight: bold;">📤 Final Prompt:</div>
-                <div id="aiDebugFinalPrompt" style="font-size: 9px; color: #4f4; padding: 6px; background: #0a1a0a; border: 1px solid #4f4; border-radius: 3px; min-height: 30px; word-break: break-all; max-height: 100px; overflow-y: auto; font-family: monospace;">-</div>
-                
-                <div style="display: flex; gap: 4px; margin-top: 6px;">
-                    <button id="aiDebugCopyPrompt" class="reset-btn" style="flex: 1; font-size: 7px; padding: 3px;">📋 Copy</button>
-                    <button id="aiDebugRefresh" class="reset-btn" style="flex: 1; font-size: 7px; padding: 3px;">🔄 Refresh</button>
-                </div>
-                
-                <div style="font-size: 6px; color: #666; margin-top: 4px;">Last update: <span id="aiDebugTimestamp">-</span></div>
-            </div>
         </div>
     </div>
     
@@ -1095,6 +1063,333 @@
             </div>
         </div>
         
+        <!-- AI Prompt Debug -->
+        <div class="panel" id="panelAiPromptDebug">
+            <h3><span>🔍 AI Prompt</span><span class="minimize-btn">▼</span></h3>
+            <div class="panel-content">
+                <!-- Wordcloud -->
+                <div style="margin-bottom: 6px; padding: 6px; background: #0a0a0a; border-radius: 4px; border: 1px solid #333;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 7px; color: #888;">☁️ Word Cloud</span>
+                        <button id="wordcloudClear" class="reset-btn" style="margin: 0; padding: 2px 6px; font-size: 7px;">🗑 Clear</button>
+                    </div>
+                    <div id="wordcloudContainer" style="min-height: 60px; max-height: 120px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; justify-content: center; padding: 4px;">
+                        <span style="color: #444; font-size: 8px; font-style: italic;">Warte auf Speech...</span>
+                    </div>
+                </div>
+                
+                <!-- Mini AI Preview -->
+                <div style="margin-bottom: 6px; padding: 6px; background: #0a0a12; border-radius: 4px; border: 1px solid #335;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 7px; color: #88f;">🖼️ Mini AI (128×128)</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button id="miniAiGenerate" class="reset-btn" style="margin: 0; padding: 2px 6px; font-size: 7px; background: linear-gradient(135deg, #448, #226);">🎨</button>
+                            <button id="miniAiAuto" class="reset-btn" style="margin: 0; padding: 2px 6px; font-size: 7px;" title="Auto-Generate">⚡</button>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 6px; align-items: flex-start;">
+                        <div id="miniAiPreview" style="width: 80px; height: 80px; background: #111; border: 1px solid #333; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            <span style="color: #444; font-size: 7px;">-</span>
+                        </div>
+                        <div style="flex: 1; font-size: 7px;">
+                            <div id="miniAiStatus" style="color: #666; margin-bottom: 4px;">Bereit</div>
+                            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                <button id="miniAiToMain" class="reset-btn" style="margin: 0; padding: 2px 4px; font-size: 6px;" title="Use as main">↗️ Main</button>
+                                <button id="miniAiToPrompt" class="reset-btn" style="margin: 0; padding: 2px 4px; font-size: 6px;" title="Copy seed">🎲 Seed</button>
+                            </div>
+                            <div id="miniAiTime" style="color: #555; margin-top: 4px; font-size: 6px;">-</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Speech Buffer Timeout Slider -->
+                <div class="slider-group" style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #333;">
+                    <label style="font-size: 7px;">Speech Buffer Timeout</label>
+                    <div class="slider-row">
+                        <input type="range" id="speechBufferTimeout" min="1000" max="10000" step="500" value="3000">
+                        <span id="speechBufferTimeoutValue" style="font-size: 8px;">3.0s</span>
+                    </div>
+                    <div style="font-size: 6px; color: #666;">Auto-clear nach Stille</div>
+                </div>
+                
+                <!-- Prompt Pipeline Visualization -->
+                <div style="background: #0a0a0a; border: 1px solid #333; border-radius: 4px; padding: 6px; margin-bottom: 6px;">
+                    
+                    <!-- Step 1: Input -->
+                    <div style="display: flex; gap: 4px; align-items: flex-start; margin-bottom: 4px;">
+                        <span style="font-size: 7px; color: #888; min-width: 70px;">🎤 Input:</span>
+                        <div id="aiDebugBasePrompt" style="flex: 1; font-size: 8px; color: #ff8; padding: 4px; background: #111; border-radius: 3px; min-height: 18px; word-break: break-all; max-height: 50px; overflow-y: auto;">-</div>
+                        <button id="aiClearSpeechBuffer" class="reset-btn" style="margin: 0; padding: 3px 5px; font-size: 7px;" title="Clear">🗑</button>
+                    </div>
+                    
+                    <!-- Step 2: Translation (only visible when translated) -->
+                    <div id="aiTranslationRow" style="display: none; gap: 4px; align-items: flex-start; margin-bottom: 4px; padding-left: 12px; border-left: 2px solid #4af;">
+                        <span style="font-size: 7px; color: #4af; min-width: 58px;">🌐 → EN:</span>
+                        <div id="aiDebugTranslatedPrompt" style="flex: 1; font-size: 8px; color: #4af; padding: 4px; background: #0a1520; border-radius: 3px; min-height: 18px; word-break: break-all;">-</div>
+                    </div>
+                    
+                    <!-- Step 3: Instrument -->
+                    <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 4px; padding-left: 12px; opacity: 0.8;">
+                        <span style="font-size: 7px; color: #888; min-width: 58px;">🎸 + Instr:</span>
+                        <div id="aiDebugInstrument" style="flex: 1; font-size: 7px; color: #8af; padding: 2px 4px; background: #111; border-radius: 2px;">(none)</div>
+                    </div>
+                    
+                    <!-- Step 4: Modifiers -->
+                    <div style="display: flex; gap: 4px; align-items: flex-start; padding-left: 12px; opacity: 0.8;">
+                        <span style="font-size: 7px; color: #888; min-width: 58px;">🎨 + Mods:</span>
+                        <div id="aiDebugModifiers" style="flex: 1; font-size: 7px; color: #a8f; padding: 2px 4px; background: #111; border-radius: 2px; max-height: 30px; overflow-y: auto; word-break: break-all;">(none)</div>
+                    </div>
+                    
+                </div>
+                
+                <!-- Final Output -->
+                <div style="font-size: 7px; color: #4f4; margin-bottom: 2px; font-weight: bold;">📤 Final → ComfyUI:</div>
+                <div id="aiDebugFinalPrompt" style="font-size: 8px; color: #4f4; padding: 6px; background: #0a1a0a; border: 1px solid #4f4; border-radius: 3px; min-height: 30px; word-break: break-all; font-family: monospace;">-</div>
+                
+                <div style="display: flex; gap: 4px; margin-top: 6px;">
+                    <button id="aiDebugCopyPrompt" class="reset-btn" style="flex: 1; font-size: 7px; padding: 3px;">📋 Copy</button>
+                    <button id="aiDebugRefresh" class="reset-btn" style="flex: 1; font-size: 7px; padding: 3px;">🔄</button>
+                    <button id="aiRegenerateFromDebug" class="reset-btn" style="flex: 1; font-size: 7px; padding: 3px; background: linear-gradient(135deg, #4a4, #282);" title="Generate image with this prompt">🎨 Generate</button>
+                </div>
+                
+                <div style="font-size: 6px; color: #666; margin-top: 4px;">Last update: <span id="aiDebugTimestamp">-</span></div>
+            </div>
+        </div>
+        
+        <!-- Translation Settings Panel -->
+        <div class="panel" id="panelTranslation">
+            <h3><span>🌐 Translation</span><span class="minimize-btn">▼</span></h3>
+            <div class="panel-content">
+                
+                <!-- Master Toggle -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #333;">
+                    <span style="font-size: 8px; color: #fff;">Auto-Translate (DE→EN)</span>
+                    <label class="toggle-switch" style="transform: scale(0.8);">
+                        <input type="checkbox" id="translateEnabled" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <!-- Translation Methods -->
+                <div style="font-size: 7px; color: #888; margin-bottom: 4px;">🛠 Methoden:</div>
+                
+                <div style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px; margin-bottom: 8px;">
+                    <!-- Dictionary -->
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 7px; color: #aaa;" title="Direktes Wörterbuch-Lookup">📖 Dictionary</span>
+                        <label class="toggle-switch" style="transform: scale(0.7);">
+                            <input type="checkbox" id="translateDictionary" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <!-- Compound Words -->
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 7px; color: #aaa;" title="Zusammengesetzte Wörter zerlegen (Stromausfall → Strom+Ausfall)">🔗 Compound Words</span>
+                        <label class="toggle-switch" style="transform: scale(0.7);">
+                            <input type="checkbox" id="translateCompound" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <!-- Stemming -->
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 7px; color: #aaa;" title="Deutsche Endungen entfernen (gefahren → gefahr)">✂️ Stemming</span>
+                        <label class="toggle-switch" style="transform: scale(0.7);">
+                            <input type="checkbox" id="translateStemming" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <!-- Fuzzy Matching -->
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 7px; color: #aaa;" title="Ähnliche Wörter finden (Gevar → Gefahr)">🔍 Fuzzy Match</span>
+                        <label class="toggle-switch" style="transform: scale(0.7);">
+                            <input type="checkbox" id="translateFuzzy" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <!-- Skip German -->
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 7px; color: #aaa;" title="Nicht-übersetzbare deutsche Wörter überspringen">🚫 Skip Unknown DE</span>
+                        <label class="toggle-switch" style="transform: scale(0.7);">
+                            <input type="checkbox" id="translateSkipGerman" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Fuzzy Distance Slider -->
+                <div class="slider-group" style="margin-bottom: 6px;">
+                    <label style="font-size: 7px;">🔍 Fuzzy Max Distance</label>
+                    <div class="slider-row">
+                        <input type="range" id="fuzzyMaxDistance" min="0" max="4" step="1" value="0">
+                        <span id="fuzzyMaxDistanceValue" style="font-size: 8px;">auto</span>
+                    </div>
+                    <div style="font-size: 6px; color: #666;">0=auto, 1-4=fest</div>
+                </div>
+                
+                <!-- API Translation (optional) -->
+                <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #333;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 7px; color: #888;">🌐 LibreTranslate API</span>
+                        <label class="toggle-switch" style="transform: scale(0.7);">
+                            <input type="checkbox" id="translateUseApi">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <input type="text" id="translateApiUrl" placeholder="http://localhost:5000/translate" 
+                           style="width: 100%; font-size: 7px; padding: 4px; background: #111; border: 1px solid #333; border-radius: 3px; color: #888;">
+                </div>
+                
+                <!-- Stats -->
+                <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #333; font-size: 6px; color: #666;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>📖 Dictionary:</span>
+                        <span id="translateDictCount">~200 Wörter</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>🚫 Stopwords:</span>
+                        <span id="translateStopCount">~150 Wörter</span>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+        <!-- Song Recognition & Lyrics -->
+        <div class="panel" id="panelSongRecognition">
+            <h3><span>🎵 Song Recognition</span><span class="minimize-btn">▼</span></h3>
+            <div class="panel-content">
+                
+                <!-- Status & Controls -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span id="songRecognitionStatus" style="font-size: 8px; color: #888;">Ready</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button id="songRecognizeBtn" class="reset-btn" style="padding: 4px 8px; font-size: 7px; background: linear-gradient(135deg, #448, #226);">🎙️ Recognize</button>
+                        <button id="clearSongBtn" class="reset-btn" style="padding: 4px 8px; font-size: 7px;">🗑</button>
+                    </div>
+                </div>
+                
+                <!-- Current Song Info -->
+                <div id="songInfo" style="padding: 8px; background: #111; border-radius: 4px; margin-bottom: 8px; min-height: 40px;">
+                    <span style="color: #666;">No song detected</span>
+                </div>
+                
+                <!-- Manual Song Input -->
+                <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+                    <input type="text" id="manualArtist" placeholder="Artist" 
+                           style="flex: 1; font-size: 8px; padding: 4px; background: #111; border: 1px solid #333; border-radius: 3px; color: #aaa;">
+                    <input type="text" id="manualTitle" placeholder="Song Title" 
+                           style="flex: 1; font-size: 8px; padding: 4px; background: #111; border: 1px solid #333; border-radius: 3px; color: #aaa;">
+                    <button id="manualFetchBtn" class="reset-btn" style="padding: 4px 8px; font-size: 7px;">📝</button>
+                </div>
+                
+                <!-- Current Lyric Line (large display) -->
+                <div style="padding: 12px; background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 6px; margin-bottom: 8px; text-align: center; min-height: 50px; display: flex; align-items: center; justify-content: center;">
+                    <span id="currentLyricLine" style="font-size: 14px; color: #fff; font-weight: bold; transition: opacity 0.3s;">-</span>
+                </div>
+                
+                <!-- Lyrics Controls -->
+                <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+                    <button id="fetchLyricsBtn" class="reset-btn" style="flex: 1; padding: 4px; font-size: 7px;">📝 Fetch Lyrics</button>
+                    <button id="startLyricsScroll" class="reset-btn" style="flex: 1; padding: 4px; font-size: 7px; background: linear-gradient(135deg, #484, #262);">▶️ Start</button>
+                </div>
+                
+                <!-- Lyrics Container (scrollable) -->
+                <div id="lyricsContainer" style="max-height: 120px; overflow-y: auto; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; padding: 4px; margin-bottom: 8px; font-size: 8px; color: #888;">
+                    <!-- Lyrics lines will be inserted here -->
+                </div>
+                
+                <!-- Settings -->
+                <div style="border-top: 1px solid #333; padding-top: 8px;">
+                    
+                    <!-- Use Lyrics as Prompt -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 7px; color: #aaa;" title="Sendet Lyrics-Zeilen als AI Prompt">🎨 Lyrics → AI Prompt</span>
+                        <label class="toggle-switch" style="transform: scale(0.7);">
+                            <input type="checkbox" id="songUseLyricsAsPrompt">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <!-- Auto Recognize -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 7px; color: #aaa;">🔄 Auto-Recognize</span>
+                        <label class="toggle-switch" style="transform: scale(0.7);">
+                            <input type="checkbox" id="songAutoRecognize">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <!-- Recognition Interval -->
+                    <div class="slider-group" style="margin-bottom: 6px;">
+                        <label style="font-size: 7px;">Recognition Interval</label>
+                        <div class="slider-row">
+                            <input type="range" id="songRecognizeInterval" min="10" max="120" step="5" value="30">
+                            <span id="songRecognizeIntervalValue" style="font-size: 8px;">30s</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Lyrics Scroll Speed -->
+                    <div class="slider-group" style="margin-bottom: 6px;">
+                        <label style="font-size: 7px;">Lyrics Scroll Speed</label>
+                        <div class="slider-row">
+                            <input type="range" id="lyricsScrollSpeed" min="1" max="15" step="1" value="5">
+                            <span id="lyricsScrollSpeedValue" style="font-size: 8px;">5s</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- API Settings (collapsed by default) -->
+                <details style="margin-top: 8px; border-top: 1px solid #333; padding-top: 8px;">
+                    <summary style="font-size: 7px; color: #888; cursor: pointer;">🔑 API Settings</summary>
+                    <div style="padding-top: 8px;">
+                        
+                        <!-- Provider Selection -->
+                        <div style="margin-bottom: 8px;">
+                            <label style="font-size: 7px; color: #888;">Recognition Provider</label>
+                            <select id="songProvider" style="margin-top: 2px; width: 100%;">
+                                <option value="acoustid">⭐ AcoustID (kostenlos, unlimitiert)</option>
+                                <option value="acrcloud">ACRCloud (100/Tag)</option>
+                                <option value="audd">AudD (300/Monat)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- AcoustID Settings (default) -->
+                        <div id="acoustidSettings">
+                            <div style="font-size: 7px; color: #4f4; margin-bottom: 4px;">⭐ AcoustID - Open Source, keine Limits!</div>
+                            <input type="text" id="acoustidApiKey" placeholder="API Key (instant verfügbar)" 
+                                   style="width: 100%; font-size: 7px; padding: 4px; background: #111; border: 1px solid #333; border-radius: 3px; color: #aaa;">
+                            <a href="https://acoustid.org/api-key" target="_blank" style="font-size: 6px; color: #4f4;">API Key holen (sofort, kostenlos) →</a>
+                            <div style="font-size: 6px; color: #666; margin-top: 4px;">Nutzt MusicBrainz Datenbank</div>
+                        </div>
+                        
+                        <!-- ACRCloud Settings -->
+                        <div id="acrcloudSettings" style="display: none;">
+                            <div style="font-size: 7px; color: #666; margin-bottom: 4px;">ACRCloud (100 free/day)</div>
+                            <input type="text" id="acrAccessKey" placeholder="Access Key" 
+                                   style="width: 100%; font-size: 7px; padding: 4px; background: #111; border: 1px solid #333; border-radius: 3px; color: #aaa; margin-bottom: 4px;">
+                            <input type="password" id="acrAccessSecret" placeholder="Access Secret" 
+                                   style="width: 100%; font-size: 7px; padding: 4px; background: #111; border: 1px solid #333; border-radius: 3px; color: #aaa;">
+                            <a href="https://console.acrcloud.com/" target="_blank" style="font-size: 6px; color: #48f;">Get free API key →</a>
+                        </div>
+                        
+                        <!-- AudD Settings -->
+                        <div id="auddSettings" style="display: none;">
+                            <div style="font-size: 7px; color: #666; margin-bottom: 4px;">AudD (300 free/month)</div>
+                            <input type="text" id="auddApiToken" placeholder="API Token" 
+                                   style="width: 100%; font-size: 7px; padding: 4px; background: #111; border: 1px solid #333; border-radius: 3px; color: #aaa;">
+                            <a href="https://audd.io/" target="_blank" style="font-size: 6px; color: #48f;">Get free API key →</a>
+                        </div>
+                        
+                    </div>
+                </details>
+                
+            </div>
+        </div>
+        
         <!-- AI Image -->
         <div class="panel" id="panelAiBild">
             <h3>
@@ -1427,7 +1722,8 @@
                 <div style="display: flex; gap: 4px; margin-top: 4px;">
                     <input type="text" id="aiPromptInput" placeholder="Enter prompt..." style="flex: 1; padding: 4px 6px; font-size: 9px; background: #222; border: 1px solid #444; border-radius: 3px; color: #fff;">
                     <button class="reset-btn" id="aiClearPrompt" style="margin: 0; width: auto; padding: 4px 6px; font-size: 8px;" title="Clear prompt">❌</button>
-                    <button class="reset-btn" id="aiGenerateBtn" style="margin: 0; width: auto; padding: 4px 8px;">🎨</button>
+                    <button class="reset-btn" id="aiGenerateBtn" style="margin: 0; width: auto; padding: 4px 8px;" title="Generate new image">🎨</button>
+                    <button class="reset-btn" id="aiRegenerateBtn" style="margin: 0; width: auto; padding: 4px 6px; font-size: 10px; background: linear-gradient(135deg, #4a4, #282);" title="Regenerate with same prompt">🔄</button>
                 </div>
                 
                 <!-- Prompt Modifiers -->
@@ -1470,8 +1766,11 @@
                 </div>
                 
                 <!-- Preview -->
-                <div id="aiImagePreview">
-                    <span class="placeholder">No Image</span>
+                <div style="position: relative;">
+                    <div id="aiImagePreview">
+                        <span class="placeholder">No Image</span>
+                    </div>
+                    <button id="aiRegenerateOverlay" class="reset-btn" style="position: absolute; top: 4px; right: 4px; margin: 0; padding: 4px 8px; font-size: 10px; background: rgba(0,0,0,0.7); border: 1px solid #4a4; opacity: 0.7;" title="Regenerate">🔄</button>
                 </div>
                 
                 <!-- Buffer Thumbnails -->

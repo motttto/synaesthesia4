@@ -85,6 +85,10 @@ import {
     detectSystemMicrophone, setBackend
 } from './input/speech.js';
 import {
+    initSongRecognition, onLyricsLine, setAudioStream as setSongAudioStream,
+    songState, getCurrentLyricLine
+} from './audio/song-recognition.js';
+import {
     cameraInputState, initCameraInputUI, renderCameraOverlay,
     loadCameraDevices, updateCameraTexture, onCameraModelChanged,
     getMappedPosition, skeletonState
@@ -226,7 +230,8 @@ async function startAudio(deviceId) {
         
         // Audio Stream für Speech Recognition bereitstellen (Whisper backends)
         setAppAudioStream(stream);
-        console.log('🎙️ Audio Stream an Speech Recognition weitergeleitet');
+        setSongAudioStream(stream);
+        console.log('🎙️ Audio Stream an Speech & Song Recognition weitergeleitet');
         
         isRunning = true;
         
@@ -567,9 +572,18 @@ async function init() {
     initCameraUI();
     initStream();
     initAiUI();
+    initSongRecognition();
     initIntervalModal();
     initVideoUI();
     initCameraInputUI();
+    
+    // Lyrics -> AI Prompt Integration
+    onLyricsLine((line) => {
+        if (songState.useLyricsAsPrompt && line) {
+            console.log('🎤 Lyrics -> AI:', line);
+            updateAiFromSpeech(line);
+        }
+    });
     
     // DevTools Button (nur in Electron)
     const devToolsBtn = document.getElementById('devToolsToggle');

@@ -307,6 +307,7 @@ function createWindow() {
         height: 900,
         minWidth: 1000,
         minHeight: 700,
+        fullscreen: true,  // Startet im Vollbild
         title: 'Synästhesie',
         backgroundColor: '#000000',
         webPreferences: {
@@ -855,6 +856,101 @@ print(json.dumps({"text": result["text"]}))
         
     } catch (err) {
         console.error('Python Whisper error:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+// IPC Handler: Calculate audio fingerprint for AcoustID
+ipcMain.handle('calculate-fingerprint', async (event, audioData) => {
+    const tempDir = path.join(os.tmpdir(), 'synaesthesie-fingerprint');
+    
+    try {
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        // Audio als temporäre Datei speichern
+        const tempAudioPath = path.join(tempDir, `audio_${Date.now()}.webm`);
+        const audioBuffer = Buffer.from(audioData);
+        fs.writeFileSync(tempAudioPath, audioBuffer);
+        
+        // fpcalc suchen
+        const fpcalcPaths = [
+            '/opt/homebrew/bin/fpcalc',
+            '/usr/local/bin/fpcalc',
+            '/usr/bin/fpcalc',
+            path.join(os.homedir(), '.local/bin/fpcalc')
+        ];
+        
+        let fpcalcPath = null;
+        for (const p of fpcalcPaths) {
+            if (fs.existsSync(p)) {
+                fpcalcPath = p;
+                break;
+            }
+        }
+        
+        if (!fpcalcPath) {
+            // Versuche fpcalc über which zu finden
+            try {
+                const { stdout } = require('child_process').execSync('which fpcalc', { encoding: 'utf8' });
+                if (stdout.trim()) {
+                    fpcalcPath = stdout.trim();
+                }
+            } catch (e) {}
+        }
+        
+        if (!fpcalcPath) {
+            return { 
+                success: false, 
+                error: 'fpcalc not found. Install: brew install chromaprint' 
+            };
+        }
+        
+        console.log('🎵 Using fpcalc at:', fpcalcPath);
+        
+        // fpcalc ausführen
+        return new Promise((resolve) => {
+            const args = ['-json', tempAudioPath];
+            const proc = spawn(fpcalcPath, args);
+            
+            let stdout = '';
+            let stderr = '';
+            
+            proc.stdout.on('data', (data) => stdout += data);
+            proc.stderr.on('data', (data) => stderr += data);
+            
+            proc.on('close', (code) => {
+                // Cleanup
+                try { fs.unlinkSync(tempAudioPath); } catch (e) {}
+                
+                if (code !== 0) {
+                    console.error('fpcalc error:', stderr);
+                    resolve({ success: false, error: stderr || 'fpcalc failed' });
+                    return;
+                }
+                
+                try {
+                    const result = JSON.parse(stdout);
+                    console.log('🎵 Fingerprint calculated, duration:', result.duration, 's');
+                    resolve({
+                        success: true,
+                        fingerprint: result.fingerprint,
+                        duration: result.duration
+                    });
+                } catch (e) {
+                    resolve({ success: false, error: 'Failed to parse fpcalc output' });
+                }
+            });
+            
+            proc.on('error', (err) => {
+                try { fs.unlinkSync(tempAudioPath); } catch (e) {}
+                resolve({ success: false, error: err.message });
+            });
+        });
+        
+    } catch (err) {
+        console.error('Fingerprint error:', err);
         return { success: false, error: err.message };
     }
 });

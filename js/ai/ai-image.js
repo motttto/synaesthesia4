@@ -41,7 +41,7 @@ export const aiState = {
     sampler: 'euler',           // Sampler name (euler = fastest)
     
     // Save Settings
-    saveImages: true,           // true = SaveImage (dauerhaft), false = PreviewImage (temporär)
+    saveImages: false,          // true = SaveImage (dauerhaft), false = PreviewImage (temporär)
     
     // ComfyUI Connection
     comfyPort: 8188,
@@ -112,6 +112,20 @@ export const aiState = {
     postUpscaleTarget: '1920x1080', // Zielauflösung
     postUpscaleSharpen: 0,        // Schärfung 0-100
     
+    // Translation Settings
+    translateEnabled: true,      // Auto-translate non-English to English
+    translateApiUrl: 'http://localhost:5000/translate', // LibreTranslate URL (optional)
+    useApiTranslation: false,    // Use API instead of dictionary
+    lastTranslatedPrompt: '',    // Letzter übersetzter Prompt
+    
+    // Translation Method Toggles
+    translateDictionary: true,   // Direktes Wörterbuch-Lookup
+    translateCompound: true,     // Zusammengesetzte Wörter zerlegen
+    translateStemming: true,     // Deutsche Endungen entfernen
+    translateFuzzy: true,        // Fuzzy-Matching für ähnliche Wörter
+    translateSkipGerman: true,   // Nicht-übersetzbare deutsche Wörter überspringen
+    fuzzyMaxDistance: 0,         // 0 = auto (abhängig von Wortlänge)
+    
     // Prompt Modifier Texts
     modifierTexts: {
         cinematic: 'cinematic lighting, dramatic atmosphere, film grain, anamorphic lens, depth of field, volumetric lighting, color grading',
@@ -129,6 +143,9 @@ let continuousGenActive = false;
 let streamModeActive = false;
 let streamImageCount = 0;
 let streamStartTime = 0;
+
+// Image Preload Cache für flüssiges Playback
+let preloadedImages = new Map();  // URL -> decoded Image object
 
 // UI Elements
 let previewEl = null;
@@ -150,6 +167,595 @@ let speechBuffer = [];           // Array von erkannten Wörtern
 let speechBufferTimer = null;    // Timer für Auto-Clear
 let speechBufferTimeout = 3000;  // Clear nach X ms Stille (einstellbar)
 let speechLastUpdate = 0;        // Timestamp des letzten Updates
+
+// Wordcloud State
+let wordcloudWords = {};         // {word: {count: N, lastSeen: timestamp}}
+let wordcloudContainer = null;
+let wordcloudRefreshTimer = null;
+
+// Mini AI State
+let miniAiState = {
+    generating: false,
+    autoMode: false,
+    lastSeed: null,
+    lastImage: null,
+    lastPrompt: null
+};
+let miniAiPreviewEl = null;
+let miniAiStatusEl = null;
+let miniAiTimeEl = null;
+
+// ============================================
+// TRANSLATION SYSTEM (DE -> EN)
+// ============================================
+
+/**
+ * Deutsch-Englisch Wörterbuch für häufige Prompt-Wörter
+ * Fokus auf visuelle/künstlerische Begriffe
+ */
+const DE_EN_DICTIONARY = {
+    // Farben
+    'rot': 'red', 'blau': 'blue', 'grün': 'green', 'gelb': 'yellow',
+    'orange': 'orange', 'lila': 'purple', 'violett': 'violet', 'rosa': 'pink',
+    'schwarz': 'black', 'weiß': 'white', 'grau': 'gray', 'braun': 'brown',
+    'gold': 'gold', 'silber': 'silver', 'türkis': 'turquoise', 'cyan': 'cyan',
+    'dunkel': 'dark', 'hell': 'light', 'leuchtend': 'bright', 'matt': 'matte',
+    
+    // Natur
+    'baum': 'tree', 'bäume': 'trees', 'wald': 'forest', 'blume': 'flower',
+    'blumen': 'flowers', 'berg': 'mountain', 'berge': 'mountains', 'see': 'lake',
+    'meer': 'sea', 'ozean': 'ocean', 'fluss': 'river', 'himmel': 'sky',
+    'wolke': 'cloud', 'wolken': 'clouds', 'sonne': 'sun', 'mond': 'moon',
+    'stern': 'star', 'sterne': 'stars', 'regen': 'rain', 'schnee': 'snow',
+    'wasser': 'water', 'feuer': 'fire', 'erde': 'earth', 'luft': 'air',
+    'wiese': 'meadow', 'gras': 'grass', 'blatt': 'leaf', 'blätter': 'leaves',
+    'rose': 'rose', 'sonnenblume': 'sunflower', 'tulpe': 'tulip',
+    
+    // Tiere
+    'hund': 'dog', 'katze': 'cat', 'vogel': 'bird', 'vögel': 'birds',
+    'pferd': 'horse', 'fisch': 'fish', 'schmetterling': 'butterfly',
+    'löwe': 'lion', 'tiger': 'tiger', 'bär': 'bear', 'wolf': 'wolf',
+    'adler': 'eagle', 'eule': 'owl', 'drache': 'dragon', 'einhorn': 'unicorn',
+    
+    // Menschen & Körper
+    'mensch': 'human', 'mann': 'man', 'frau': 'woman', 'kind': 'child',
+    'gesicht': 'face', 'auge': 'eye', 'augen': 'eyes', 'hand': 'hand',
+    'hände': 'hands', 'kopf': 'head', 'herz': 'heart', 'körper': 'body',
+    'portrait': 'portrait', 'person': 'person', 'leute': 'people',
+    
+    // Gefühle & Stimmung
+    'glücklich': 'happy', 'traurig': 'sad', 'wütend': 'angry',
+    'friedlich': 'peaceful', 'ruhig': 'calm', 'wild': 'wild',
+    'dunkel': 'dark', 'hell': 'bright', 'mystisch': 'mystical',
+    'magisch': 'magical', 'romantisch': 'romantic', 'dramatisch': 'dramatic',
+    'melancholisch': 'melancholic', 'fröhlich': 'cheerful',
+    
+    // Kunst & Stil
+    'abstrakt': 'abstract', 'realistisch': 'realistic', 'surreal': 'surreal',
+    'impressionistisch': 'impressionist', 'expressionistisch': 'expressionist',
+    'minimalistisch': 'minimalist', 'modern': 'modern', 'klassisch': 'classical',
+    'gemälde': 'painting', 'zeichnung': 'drawing', 'skizze': 'sketch',
+    'kunstwerk': 'artwork', 'bild': 'image', 'foto': 'photo',
+    'porträt': 'portrait', 'landschaft': 'landscape', 'stillleben': 'still life',
+    'ölgemälde': 'oil painting', 'aquarell': 'watercolor',
+    
+    // Musik & Synästhesie
+    'musik': 'music', 'melodie': 'melody', 'harmonie': 'harmony',
+    'rhythmus': 'rhythm', 'klang': 'sound', 'ton': 'tone', 'töne': 'tones',
+    'akkord': 'chord', 'dur': 'major', 'moll': 'minor',
+    'laut': 'loud', 'leise': 'quiet', 'sanft': 'soft', 'hart': 'hard',
+    'hoch': 'high', 'tief': 'low', 'warm': 'warm', 'kalt': 'cold',
+    
+    // Objekte
+    'haus': 'house', 'stadt': 'city', 'straße': 'street', 'brücke': 'bridge',
+    'turm': 'tower', 'schloss': 'castle', 'tempel': 'temple', 'kirche': 'church',
+    'fenster': 'window', 'tür': 'door', 'licht': 'light', 'schatten': 'shadow',
+    'spiegel': 'mirror', 'glas': 'glass', 'kristall': 'crystal',
+    
+    // Zeit & Raum
+    'tag': 'day', 'nacht': 'night', 'morgen': 'morning', 'abend': 'evening',
+    'sonnenuntergang': 'sunset', 'sonnenaufgang': 'sunrise', 'dämmerung': 'twilight',
+    'raum': 'space', 'universum': 'universe', 'galaxie': 'galaxy',
+    'nebel': 'fog', 'dunst': 'haze', 'horizont': 'horizon',
+    
+    // Adjektive
+    'groß': 'big', 'klein': 'small', 'alt': 'old', 'neu': 'new',
+    'schön': 'beautiful', 'hässlich': 'ugly', 'stark': 'strong', 'schwach': 'weak',
+    'schnell': 'fast', 'langsam': 'slow', 'weich': 'soft', 'glatt': 'smooth',
+    'rau': 'rough', 'scharf': 'sharp', 'verschwommen': 'blurry',
+    'detailliert': 'detailed', 'einfach': 'simple', 'komplex': 'complex',
+    
+    // Verben (für Aktionen)
+    'fliegen': 'flying', 'schwimmen': 'swimming', 'tanzen': 'dancing',
+    'laufen': 'running', 'sitzen': 'sitting', 'stehen': 'standing',
+    'träumen': 'dreaming', 'schlafen': 'sleeping', 'spielen': 'playing',
+    
+    // Qualität
+    'hochauflösend': 'high resolution', 'hd': 'hd', '4k': '4k', '8k': '8k',
+    'fotorealistisch': 'photorealistic', 'hyperrealistisch': 'hyperrealistic',
+    'meisterwerk': 'masterpiece', 'professionell': 'professional',
+    
+    // Erweiterte Wörter für zusammengesetzte Begriffe
+    'strom': 'power', 'ausfall': 'outage', 'fall': 'fall',
+    'arbeit': 'work', 'platz': 'place', 'plätze': 'places',
+    'industrie': 'industry', 'fabrik': 'factory',
+    'gefahr': 'danger', 'sicherheit': 'safety', 'schutz': 'protection',
+    'handel': 'trade', 'kammer': 'chamber', 'verband': 'association',
+    'regierung': 'government', 'staat': 'state', 'politik': 'politics',
+    'wirtschaft': 'economy', 'minister': 'minister', 'präsident': 'president',
+    'krieg': 'war', 'frieden': 'peace', 'macht': 'power',
+    'gewalt': 'violence', 'recht': 'law', 'gesetz': 'law',
+    'wechsel': 'change', 'wandel': 'change', 'bewegung': 'movement',
+    'entwicklung': 'development', 'forschung': 'research',
+    'bildung': 'education', 'schule': 'school', 'universitaet': 'university',
+    'gesundheit': 'health', 'krankheit': 'illness', 'arzt': 'doctor',
+    'energie': 'energy', 'kraft': 'force', 'stärke': 'strength',
+    'zukunft': 'future', 'vergangenheit': 'past', 'gegenwart': 'present',
+    'anfang': 'beginning', 'ende': 'end', 'mitte': 'middle',
+    'oben': 'above', 'unten': 'below', 'links': 'left', 'rechts': 'right',
+    'innen': 'inside', 'außen': 'outside', 'vorne': 'front', 'hinten': 'back'
+};
+
+/**
+ * Deutsche Stoppwörter die nicht übersetzt werden müssen
+ */
+const GERMAN_STOPWORDS = new Set([
+    'der', 'die', 'das', 'ein', 'eine', 'einer', 'einem', 'einen',
+    'und', 'oder', 'aber', 'mit', 'von', 'zu', 'bei', 'nach', 'vor',
+    'in', 'an', 'auf', 'aus', 'um', 'für', 'durch', 'gegen', 'ohne',
+    'ist', 'sind', 'war', 'hat', 'haben', 'wird', 'werden', 'wurde', 'worden',
+    'ich', 'du', 'er', 'sie', 'es', 'wir', 'ihr', 'man',
+    'mein', 'dein', 'sein', 'unser', 'euer', 'ihr', 'ihre', 'ihren',
+    'dieser', 'diese', 'dieses', 'jener', 'jene', 'jenes',
+    'sehr', 'viel', 'mehr', 'wenig', 'weniger', 'auch', 'noch', 'schon',
+    // Erweiterte Stoppwörter (Konjunktionen, Adverbien, Funktionswörter)
+    'demnach', 'dabei', 'jedoch', 'bereits', 'zwischen', 'sowie', 'wobei',
+    'daher', 'deshalb', 'dennoch', 'trotzdem', 'obwohl', 'weil', 'dass', 'daß',
+    'wenn', 'falls', 'sofern', 'sobald', 'solange', 'bevor', 'nachdem', 'während',
+    'bis', 'seit', 'ab', 'je', 'als', 'wie', 'so', 'dann', 'nun', 'jetzt',
+    'hier', 'dort', 'wo', 'wohin', 'woher', 'wann', 'warum', 'weshalb', 'wieso',
+    'was', 'wer', 'wem', 'wen', 'welche', 'welcher', 'welches', 'dessen', 'deren',
+    'sich', 'selbst', 'einander', 'andere', 'anderer', 'anderen', 'anderem',
+    'alle', 'alles', 'jede', 'jeder', 'jedes', 'jeden', 'jedem', 'keine', 'keiner',
+    'kein', 'keinem', 'keinen', 'manche', 'mancher', 'manches', 'manchem',
+    'beide', 'beider', 'beiden', 'beidem', 'solche', 'solcher', 'solches',
+    'immer', 'nie', 'niemals', 'oft', 'selten', 'manchmal', 'meistens', 'meist',
+    'etwa', 'ungefähr', 'ca', 'circa', 'fast', 'kaum', 'nur', 'bloß', 'bloß',
+    'eigentlich', 'tatsächlich', 'wirklich', 'eben', 'gerade', 'sogar', 'zwar',
+    'also', 'nämlich', 'übrigens', 'jedenfalls', 'immerhin', 'allerdings',
+    'sei', 'seien', 'wäre', 'wären', 'hätte', 'hätten', 'könnte', 'könnten',
+    'sollte', 'sollten', 'wollte', 'wollten', 'müsste', 'müssten', 'dürfte',
+    'soll', 'will', 'kann', 'muss', 'darf', 'mag', 'können', 'müssen', 'dürfen',
+    'laut', 'gemäß', 'entsprechend', 'hinsichtlich', 'bezüglich', 'angesichts',
+    'zwecks', 'mittels', 'anhand', 'aufgrund', 'infolge', 'trotz', 'statt',
+    'voraussichtlich', 'anscheinend', 'offenbar', 'vermutlich', 'wahrscheinlich'
+]);
+
+/**
+ * Erkennt ob ein Text deutsch ist
+ * Verwendet Umlaute, Wörterbuch UND typisch deutsche Wortendungen
+ * @param {string} text - Eingabetext
+ * @returns {boolean} - true wenn wahrscheinlich deutsch
+ */
+function isGermanText(text) {
+    if (!text || text.trim().length === 0) return false;
+    
+    const words = text.toLowerCase().split(/\s+/);
+    let germanIndicators = 0;
+    let totalWords = 0;
+    
+    // Typisch deutsche Wortendungen
+    const germanEndings = [
+        'ung', 'heit', 'keit', 'schaft', 'tum', 'nis', 'sal',  // Substantiv-Endungen
+        'chen', 'lein', 'ling',  // Diminutive
+        'bar', 'lich', 'ig', 'isch', 'haft', 'sam', 'los',  // Adjektiv-Endungen
+        'ieren', 'eln', 'ern',  // Verb-Endungen
+        'eur', 'ent', 'ant', 'ät',  // Fremdwort-Endungen im Deutschen
+    ];
+    
+    // Typisch deutsche Wortanfänge
+    const germanPrefixes = [
+        'ge', 'be', 'ver', 'zer', 'ent', 'emp', 'er', 'miss', 'un', 'ur',
+        'ab', 'an', 'auf', 'aus', 'bei', 'ein', 'mit', 'nach', 'vor', 'zu'
+    ];
+    
+    for (const word of words) {
+        // Entferne Satzzeichen am Ende
+        const cleanWord = word.replace(/[.,!?;:]+$/, '');
+        if (cleanWord.length < 2) continue;
+        totalWords++;
+        
+        // Check for German-specific characters (Umlaute, ß)
+        if (/[äöüßÄÖÜ]/.test(cleanWord)) {
+            germanIndicators += 3; // Starker Indikator
+            continue;
+        }
+        
+        // Check if word is in German dictionary or stopwords
+        if (DE_EN_DICTIONARY[cleanWord] || GERMAN_STOPWORDS.has(cleanWord)) {
+            germanIndicators += 2;
+            continue;
+        }
+        
+        // Check for German word endings
+        for (const ending of germanEndings) {
+            if (cleanWord.length > ending.length + 2 && cleanWord.endsWith(ending)) {
+                germanIndicators += 1.5;
+                break;
+            }
+        }
+        
+        // Check for German prefixes (nur bei längeren Wörtern)
+        if (cleanWord.length > 5) {
+            for (const prefix of germanPrefixes) {
+                if (cleanWord.startsWith(prefix)) {
+                    germanIndicators += 0.5;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Consider German if indicators suggest it (>25% threshold, lowered from 30%)
+    const ratio = totalWords > 0 ? germanIndicators / totalWords : 0;
+    const isGerman = ratio > 0.25;
+    
+    if (isGerman) {
+        console.log(`🇩🇪 German detected (score: ${ratio.toFixed(2)}): "${text}"`);
+    }
+    
+    return isGerman;
+}
+
+/**
+ * Berechnet die Levenshtein-Distanz zwischen zwei Strings
+ * (Anzahl der Einfügungen, Löschungen, Ersetzungen um s1 in s2 umzuwandeln)
+ */
+function levenshteinDistance(s1, s2) {
+    const len1 = s1.length;
+    const len2 = s2.length;
+    
+    // Optimierung für leere Strings
+    if (len1 === 0) return len2;
+    if (len2 === 0) return len1;
+    
+    // Matrix erstellen
+    const matrix = [];
+    for (let i = 0; i <= len1; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= len2; j++) {
+        matrix[0][j] = j;
+    }
+    
+    // Matrix füllen
+    for (let i = 1; i <= len1; i++) {
+        for (let j = 1; j <= len2; j++) {
+            const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,      // Löschung
+                matrix[i][j - 1] + 1,      // Einfügung
+                matrix[i - 1][j - 1] + cost // Ersetzung
+            );
+        }
+    }
+    
+    return matrix[len1][len2];
+}
+
+/**
+ * Findet das ähnlichste Wort im Wörterbuch
+ * @param {string} word - Das zu suchende Wort
+ * @param {number} maxDistance - Maximale erlaubte Distanz (default: abhängig von Wortlänge)
+ * @returns {{word: string, translation: string, distance: number}|null}
+ */
+function findClosestDictionaryWord(word, maxDistance = null) {
+    if (!word || word.length < 3) return null;
+    
+    // Maximale Distanz abhängig von Wortlänge
+    // Kurze Wörter: max 1, mittlere: max 2, lange: max 3
+    if (maxDistance === null) {
+        if (word.length <= 4) maxDistance = 1;
+        else if (word.length <= 7) maxDistance = 2;
+        else maxDistance = 3;
+    }
+    
+    let bestMatch = null;
+    let bestDistance = Infinity;
+    
+    for (const [germanWord, englishWord] of Object.entries(DE_EN_DICTIONARY)) {
+        // Überspringe Wörter mit sehr unterschiedlicher Länge
+        if (Math.abs(germanWord.length - word.length) > maxDistance) continue;
+        
+        const distance = levenshteinDistance(word, germanWord);
+        
+        if (distance < bestDistance && distance <= maxDistance) {
+            bestDistance = distance;
+            bestMatch = {
+                word: germanWord,
+                translation: englishWord,
+                distance: distance
+            };
+            
+            // Perfekter Match gefunden
+            if (distance === 0) break;
+        }
+    }
+    
+    return bestMatch;
+}
+
+/**
+ * Übersetzt einen deutschen Text ins Englische
+ * Verwendet das lokale Wörterbuch mit erweiterter Logik:
+ * - Zusammengesetzte Wörter werden zerlegt
+ * - Deutsche Endungen werden für Stammsuche entfernt
+ * - Fuzzy-Matching für phonetische Varianten
+ * - Nicht-übersetzbare Wörter werden übersprungen
+ * @param {string} text - Deutscher Text
+ * @returns {string} - Englischer Text
+ */
+function translateWithDictionary(text) {
+    if (!text || text.trim().length === 0) return text;
+    
+    const words = text.split(/\s+/);
+    const translatedWords = [];
+    
+    for (const word of words) {
+        // Entferne Satzzeichen am Ende
+        const cleanWord = word.replace(/[.,!?;:]+$/, '').toLowerCase();
+        
+        // Skip stopwords
+        if (GERMAN_STOPWORDS.has(cleanWord)) {
+            continue;
+        }
+        
+        // 1. Direkte Übersetzung (Dictionary)
+        if (aiState.translateDictionary && DE_EN_DICTIONARY[cleanWord]) {
+            translatedWords.push(DE_EN_DICTIONARY[cleanWord]);
+            continue;
+        }
+        
+        // 2. Versuche zusammengesetztes Wort zu zerlegen (Compound)
+        if (aiState.translateCompound) {
+            const compoundTranslation = translateCompoundWord(cleanWord);
+            if (compoundTranslation) {
+                translatedWords.push(compoundTranslation);
+                continue;
+            }
+        }
+        
+        // 3. Versuche Wort ohne deutsche Endung zu finden (Stemming)
+        if (aiState.translateStemming) {
+            const stemTranslation = translateWithStemming(cleanWord);
+            if (stemTranslation) {
+                translatedWords.push(stemTranslation);
+                continue;
+            }
+        }
+        
+        // 4. Fuzzy-Matching: Finde ähnlichstes Wort im Wörterbuch
+        if (aiState.translateFuzzy) {
+            const maxDist = aiState.fuzzyMaxDistance > 0 ? aiState.fuzzyMaxDistance : null;
+            const fuzzyMatch = findClosestDictionaryWord(cleanWord, maxDist);
+            if (fuzzyMatch) {
+                console.log(`🔍 Fuzzy match: "${cleanWord}" → "${fuzzyMatch.word}" (dist: ${fuzzyMatch.distance}) → "${fuzzyMatch.translation}"`);
+                translatedWords.push(fuzzyMatch.translation);
+                continue;
+            }
+        }
+        
+        // 5. Wort sieht deutsch aus aber nicht übersetzbar?
+        if (aiState.translateSkipGerman && looksGerman(cleanWord)) {
+            console.log(`⚠️ Skipping untranslatable German word: "${cleanWord}"`);
+            continue;
+        }
+        
+        // 6. Sonst: Wort behalten (vermutlich englisch oder Name)
+        translatedWords.push(word);
+    }
+    
+    return translatedWords.join(' ');
+}
+
+/**
+ * Prüft ob ein einzelnes Wort deutsch aussieht
+ */
+function looksGerman(word) {
+    // Umlaute - sicherer Indikator
+    if (/[äöüßÄÖÜ]/.test(word)) return true;
+    
+    // Typisch deutsche Endungen (erweitert)
+    const germanEndings = [
+        'ung', 'heit', 'keit', 'schaft', 'tum', 'nis', 'sal',
+        'lich', 'ig', 'isch', 'bar', 'sam', 'haft', 'los',
+        'chen', 'lein', 'ling', 'ieren', 'eln', 'ern',
+        'ent', 'ant', 'eur', 'tion', 'sion', 
+        'er', 'en', 'el', 'em', 'es'  // Kürzere Endungen nur bei längeren Wörtern
+    ];
+    
+    for (const ending of germanEndings) {
+        // Kürzere Endungen nur bei längeren Wörtern prüfen
+        const minLength = ending.length <= 2 ? 6 : ending.length + 2;
+        if (word.length >= minLength && word.endsWith(ending)) return true;
+    }
+    
+    // Typisch deutsche Präfixe bei längeren Wörtern
+    if (word.length >= 6) {
+        const germanPrefixes = ['ge', 'be', 'ver', 'zer', 'ent', 'emp', 'er', 'miss', 'un', 'ur', 'vor', 'nach', 'aus', 'ein', 'ab', 'an', 'auf', 'zu'];
+        for (const prefix of germanPrefixes) {
+            if (word.startsWith(prefix)) return true;
+        }
+    }
+    
+    // Sehr lange Wörter (>12 Zeichen) ohne Bindestrich sind oft deutsch (zusammengesetzt)
+    if (word.length > 12 && !word.includes('-')) return true;
+    
+    // Typisch deutsche Buchstabenkombinationen
+    if (/sch|ch|ck|tz|pf|dt|gn|kn|pn/.test(word) && word.length > 4) return true;
+    
+    return false;
+}
+
+/**
+ * Versucht ein zusammengesetztes deutsches Wort zu übersetzen
+ * z.B. "Stromausfall" -> "power outage" (Strom + Ausfall)
+ */
+function translateCompoundWord(word) {
+    if (word.length < 6) return null;
+    
+    // Versuche das Wort an verschiedenen Stellen zu teilen
+    for (let i = 3; i < word.length - 2; i++) {
+        const part1 = word.substring(0, i);
+        const part2 = word.substring(i);
+        
+        const trans1 = DE_EN_DICTIONARY[part1];
+        const trans2 = DE_EN_DICTIONARY[part2];
+        
+        if (trans1 && trans2) {
+            return `${trans1} ${trans2}`;
+        }
+        
+        // Versuche auch mit 's' oder 'n' Fugenlaut
+        if (word[i] === 's' || word[i] === 'n') {
+            const part2WithoutFuge = word.substring(i + 1);
+            const trans2Alt = DE_EN_DICTIONARY[part2WithoutFuge];
+            if (trans1 && trans2Alt) {
+                return `${trans1} ${trans2Alt}`;
+            }
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Versucht Wort ohne deutsche Endung im Wörterbuch zu finden
+ */
+function translateWithStemming(word) {
+    const endings = ['en', 'er', 'es', 'em', 'e', 'n', 's', 'ung', 'heit', 'keit'];
+    
+    for (const ending of endings) {
+        if (word.length > ending.length + 2 && word.endsWith(ending)) {
+            const stem = word.substring(0, word.length - ending.length);
+            if (DE_EN_DICTIONARY[stem]) {
+                return DE_EN_DICTIONARY[stem];
+            }
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Versucht Übersetzung über LibreTranslate API (optional)
+ * @param {string} text - Text zum Übersetzen
+ * @returns {Promise<string|null>} - Übersetzter Text oder null bei Fehler
+ */
+async function translateWithApi(text) {
+    if (!aiState.useApiTranslation || !aiState.translateApiUrl) {
+        return null;
+    }
+    
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
+        const response = await fetch(aiState.translateApiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                q: text,
+                source: 'de',
+                target: 'en',
+                format: 'text'
+            }),
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.translatedText) {
+                console.log('🌐 API Translation:', text, '->', data.translatedText);
+                return data.translatedText;
+            }
+        }
+    } catch (e) {
+        console.warn('⚠️ Translation API not available:', e.message);
+    }
+    
+    return null;
+}
+
+/**
+ * Hauptfunktion: Übersetzt Prompt wenn nötig
+ * @param {string} prompt - Original Prompt
+ * @returns {Promise<string>} - Übersetzter Prompt (oder Original wenn schon Englisch)
+ */
+export async function translatePrompt(prompt) {
+    if (!aiState.translateEnabled || !prompt || prompt.trim().length === 0) {
+        return prompt;
+    }
+    
+    // Versuche zuerst API-Übersetzung (wenn aktiviert)
+    if (aiState.useApiTranslation) {
+        const apiTranslation = await translateWithApi(prompt);
+        if (apiTranslation && apiTranslation !== prompt) {
+            console.log('🌐 API translated:', prompt, '->', apiTranslation);
+            aiState.lastTranslatedPrompt = apiTranslation;
+            updateTranslationDebug(prompt, apiTranslation, 'API');
+            return apiTranslation;
+        }
+    }
+    
+    // Wörterbuch-Übersetzung - IMMER versuchen
+    const dictTranslation = translateWithDictionary(prompt);
+    
+    // Wenn sich was geändert hat, war es deutsch
+    if (dictTranslation !== prompt) {
+        console.log('📖 Dictionary translated:', prompt, '->', dictTranslation);
+        aiState.lastTranslatedPrompt = dictTranslation;
+        updateTranslationDebug(prompt, dictTranslation, 'Dictionary');
+        return dictTranslation;
+    }
+    
+    // Nichts geändert - war wohl schon englisch
+    console.log('🇬🇧 No translation needed:', prompt);
+    return prompt;
+}
+
+/**
+ * Aktualisiert die Übersetzungs-Debug-Anzeige
+ */
+function updateTranslationDebug(original, translated, method) {
+    const originalEl = document.getElementById('aiDebugOriginalPrompt');
+    const translatedEl = document.getElementById('aiDebugTranslatedPrompt');
+    const methodEl = document.getElementById('aiDebugTranslateMethod');
+    
+    if (originalEl) originalEl.textContent = original || '-';
+    if (translatedEl) translatedEl.textContent = translated || '-';
+    if (methodEl) methodEl.textContent = method || '-';
+}
+
+/**
+ * Setter für Translation Settings
+ */
+export function setTranslateEnabled(enabled) {
+    aiState.translateEnabled = enabled;
+    console.log('🌐 Translation:', enabled ? 'enabled' : 'disabled');
+}
+
+export function setUseApiTranslation(enabled) {
+    aiState.useApiTranslation = enabled;
+    console.log('🌐 API Translation:', enabled ? 'enabled' : 'disabled');
+}
+
+export function setTranslateApiUrl(url) {
+    aiState.translateApiUrl = url;
+    console.log('🌐 Translate API URL:', url);
+}
 
 // ============================================
 // COMFYUI CONNECTION
@@ -244,8 +850,8 @@ export async function generateImage(prompt) {
         statusEl.style.color = '#ff0';
     }
     
-    // Workflow basierend auf Model
-    const workflow = createWorkflow(prompt, aiState.model);
+    // Workflow basierend auf Model (async wegen Übersetzung)
+    const workflow = await createWorkflow(prompt, aiState.model);
     
     try {
         // Queue prompt
@@ -327,9 +933,9 @@ export async function generateImage(prompt) {
 /**
  * Erstellt ComfyUI Workflow
  */
-function createWorkflow(prompt, model) {
-    // Prompt mit aktiven Modifiern erweitern
-    const enhancedPrompt = buildEnhancedPrompt(prompt);
+async function createWorkflow(prompt, model) {
+    // Prompt mit aktiven Modifiern erweitern (inkl. Übersetzung)
+    const enhancedPrompt = await buildEnhancedPrompt(prompt);
     
     // Verwende manuelle Settings aus aiState
     const steps = aiState.steps;
@@ -465,9 +1071,19 @@ function createWorkflow(prompt, model) {
 
 /**
  * Baut den erweiterten Prompt mit aktiven Modifiern und Instrument
+ * Inkl. automatische Übersetzung von Deutsch nach Englisch
  */
-function buildEnhancedPrompt(basePrompt) {
-    const parts = [basePrompt];
+async function buildEnhancedPrompt(basePrompt) {
+    // Schritt 1: Übersetze den Basis-Prompt wenn nötig
+    let translatedPrompt = basePrompt;
+    if (aiState.translateEnabled) {
+        translatedPrompt = await translatePrompt(basePrompt);
+        if (translatedPrompt !== basePrompt) {
+            console.log('🌐 Translated:', basePrompt, '->', translatedPrompt);
+        }
+    }
+    
+    const parts = [translatedPrompt];
     
     // Instrument hinzufügen wenn aktiviert
     const instrument = getInstrumentForPrompt();
@@ -492,31 +1108,87 @@ function buildEnhancedPrompt(basePrompt) {
         console.log('📝 Enhanced prompt:', enhanced);
     }
     
-    // Debug UI aktualisieren
-    updatePromptDebug(basePrompt, instrument, activeModifiers, enhanced);
+    // NICHT die Debug UI aktualisieren - das macht refreshPromptDebug()
+    // So wird die UI nicht mit alten Prompts überschrieben während Stream läuft
     
     return enhanced;
 }
 
 /**
  * Aktualisiert die Prompt-Debug-Anzeige
+ * Zeigt die Pipeline: Input → Translation → Instrument → Modifiers → Final
  */
-function updatePromptDebug(basePrompt, instrument, modifiers, finalPrompt) {
+function updatePromptDebug(basePrompt, instrument, modifiers, finalPrompt, translatedPrompt = null) {
     const baseEl = document.getElementById('aiDebugBasePrompt');
+    const translationRow = document.getElementById('aiTranslationRow');
+    const translatedEl = document.getElementById('aiDebugTranslatedPrompt');
     const instrumentEl = document.getElementById('aiDebugInstrument');
     const modifiersEl = document.getElementById('aiDebugModifiers');
     const finalEl = document.getElementById('aiDebugFinalPrompt');
     const timestampEl = document.getElementById('aiDebugTimestamp');
     
-    if (baseEl) baseEl.textContent = basePrompt || '-';
-    if (instrumentEl) instrumentEl.textContent = instrument || '(none)';
-    if (modifiersEl) modifiersEl.textContent = modifiers.length > 0 ? modifiers.join(' | ') : '(none)';
-    if (finalEl) finalEl.textContent = finalPrompt || '-';
+    const hasInput = basePrompt && basePrompt.trim().length > 0;
+    
+    // Step 1: Input (original prompt, may be German)
+    if (baseEl) {
+        baseEl.textContent = hasInput ? basePrompt : '-';
+        if (!hasInput) {
+            baseEl.style.color = '#666'; // Grau = leer/inaktiv
+        } else if (isGermanText(basePrompt)) {
+            baseEl.style.color = '#ff8'; // Gelb = Deutsch
+        } else {
+            baseEl.style.color = '#8f8'; // Grün = Englisch
+        }
+    }
+    
+    // Step 2: Translation (nur sichtbar wenn übersetzt wurde)
+    const wasTranslated = hasInput && translatedPrompt && translatedPrompt !== basePrompt;
+    if (translationRow) {
+        translationRow.style.display = wasTranslated ? 'flex' : 'none';
+    }
+    if (translatedEl) {
+        translatedEl.textContent = wasTranslated ? translatedPrompt : '-';
+    }
+    
+    // Step 3: Instrument
+    if (instrumentEl) {
+        instrumentEl.textContent = instrument || '(none)';
+        instrumentEl.style.opacity = instrument ? '1' : '0.5';
+    }
+    
+    // Step 4: Modifiers
+    if (modifiersEl) {
+        if (modifiers.length > 0) {
+            const shortModifiers = modifiers.map(m => {
+                if (m.length > 30) return m.substring(0, 27) + '...';
+                return m;
+            });
+            modifiersEl.textContent = shortModifiers.join(' | ');
+            modifiersEl.style.opacity = '1';
+        } else {
+            modifiersEl.textContent = '(none)';
+            modifiersEl.style.opacity = '0.5';
+        }
+    }
+    
+    // Final Output - zeige '-' wenn kein Input vorhanden, 🌐 wenn übersetzt
+    if (finalEl) {
+        if (!hasInput) {
+            finalEl.textContent = '-';
+            finalEl.style.color = '#666';
+        } else {
+            // Zeige 🌐 Icon wenn übersetzt wurde
+            const prefix = wasTranslated ? '🌐 ' : '';
+            finalEl.textContent = prefix + (finalPrompt || '-');
+            finalEl.style.color = wasTranslated ? '#4af' : '#4f4'; // Blau wenn übersetzt, grün sonst
+        }
+    }
     if (timestampEl) timestampEl.textContent = new Date().toLocaleTimeString();
 }
 
 /**
  * Exportierte Funktion zum manuellen Refresh der Debug-Anzeige
+ * Zeigt den aktuellen Prompt-Stand inkl. letzter Übersetzung (falls vorhanden)
  */
 export function refreshPromptDebug() {
     const basePrompt = promptInputEl?.value.trim() || aiState.currentPrompt || '';
@@ -529,12 +1201,25 @@ export function refreshPromptDebug() {
         }
     }
     
-    const parts = [basePrompt];
+    // IMMER versuchen zu übersetzen - wenn sich was ändert, war es deutsch
+    let translatedPrompt = null;
+    if (aiState.translateEnabled && basePrompt) {
+        const attempted = translateWithDictionary(basePrompt);
+        // Wenn Übersetzung sich unterscheidet ODER leer ist (alles übersprungen), war es deutsch
+        if (attempted !== basePrompt) {
+            translatedPrompt = attempted;
+            console.log('🌐 Translation preview:', basePrompt, '->', translatedPrompt);
+        }
+    }
+    
+    // Baue den finalen Prompt (mit übersetztem Text wenn vorhanden)
+    const promptForFinal = translatedPrompt || basePrompt;
+    const parts = [promptForFinal];
     if (instrument) parts.push(instrument);
     parts.push(...activeModifiers);
     const finalPrompt = parts.filter(p => p).join(', ');
     
-    updatePromptDebug(basePrompt, instrument, activeModifiers, finalPrompt);
+    updatePromptDebug(basePrompt, instrument, activeModifiers, finalPrompt, translatedPrompt);
     
     return finalPrompt;
 }
@@ -717,9 +1402,7 @@ async function pollForCompletion(promptId, maxAttempts = 180) {
  * Zeigt Bild im Preview und/oder Overlay an
  */
 function displayImage(imageUrl) {
-    console.log('🖼️ displayImage called with URL:', imageUrl);
-    console.log('🖼️ previewEl exists:', !!previewEl);
-    console.log('🖼️ displayMode:', aiState.displayMode);
+    console.log('🖼️ displayImage called');
     
     // Preview - IMMER anzeigen wenn previewEl existiert
     if (previewEl) {
@@ -730,38 +1413,58 @@ function displayImage(imageUrl) {
         img.style.height = 'auto';
         img.style.borderRadius = '4px';
         img.crossOrigin = 'anonymous';
-        
-        img.onload = () => {
-            console.log('✅ Preview image loaded successfully');
-        };
-        img.onerror = (e) => {
-            console.error('❌ Preview image failed to load:', e);
-            // Fallback: Zeige URL als Text
-            previewEl.innerHTML = `<div style="color:#f66;font-size:8px;word-break:break-all;">Error loading: ${imageUrl}</div>`;
-        };
-        
         previewEl.appendChild(img);
-        console.log('🖼️ Image element added to preview');
-    } else {
-        console.warn('⚠️ previewEl not found!');
     }
     
     // Overlay Canvas (wenn opacity > 0)
     if (aiState.overlayOpacity > 0 && overlayCanvas && overlayCtx) {
+        
+        // Prüfe ob Bild bereits im Preload-Cache ist
+        if (preloadedImages.has(imageUrl)) {
+            console.log('⚡ Using preloaded image (instant)');
+            const cachedImg = preloadedImages.get(imageUrl);
+            
+            if (aiState.crossfadeEnabled && aiState.bufferImage) {
+                crossfadeToImage(cachedImg);
+            } else {
+                drawImageToOverlay(cachedImg);
+            }
+            return;
+        }
+        
+        // Nicht im Cache - muss geladen werden
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            console.log('✅ Overlay image loaded');
+        img.src = imageUrl;
+        
+        // Pre-decode das Bild BEVOR wir es verwenden
+        img.decode().then(() => {
+            console.log('✅ Overlay image decoded');
+            
+            // ZUM CACHE HINZUFÜGEN für nächsten Crossfade!
+            preloadedImages.set(imageUrl, img);
+            
+            // Cache-Größe begrenzen
+            if (preloadedImages.size > 15) {
+                const firstKey = preloadedImages.keys().next().value;
+                preloadedImages.delete(firstKey);
+            }
+            
             if (aiState.crossfadeEnabled && aiState.bufferImage) {
                 crossfadeToImage(img);
             } else {
                 drawImageToOverlay(img);
             }
-        };
-        img.onerror = (e) => {
-            console.error('❌ Overlay image failed to load:', e);
-        };
-        img.src = imageUrl;
+        }).catch((e) => {
+            console.error('❌ Overlay image decode failed:', e);
+            if (img.complete) {
+                if (aiState.crossfadeEnabled && aiState.bufferImage) {
+                    crossfadeToImage(img);
+                } else {
+                    drawImageToOverlay(img);
+                }
+            }
+        });
     }
 }
 
@@ -791,39 +1494,103 @@ function drawImageToOverlay(img) {
 
 /**
  * Crossfade zwischen zwei Bildern
+ * Nutzt den Preload-Cache für sofortigen, ruckelfreien Übergang
  */
 function crossfadeToImage(newImg, duration = 1000) {
     if (!overlayCanvas || !overlayCtx) return;
     
-    const oldImg = new Image();
-    oldImg.crossOrigin = 'anonymous';
-    oldImg.src = aiState.bufferImage;
+    const baseOpacity = aiState.overlayOpacity / 100;
+    const oldImgUrl = aiState.bufferImage;
     
-    const startTime = performance.now();
+    // Cache für Dimensionen (wird einmal berechnet)
+    let oldDims = null;
+    let newDims = null;
+    let oldImg = null;
     
-    function animate() {
-        const elapsed = performance.now() - startTime;
+    // Berechne Skalierung einmal
+    function getScaledDimensions(img) {
+        const scale = Math.min(
+            overlayCanvas.width / img.width,
+            overlayCanvas.height / img.height
+        );
+        return {
+            w: img.width * scale,
+            h: img.height * scale,
+            x: (overlayCanvas.width - img.width * scale) / 2,
+            y: (overlayCanvas.height - img.height * scale) / 2
+        };
+    }
+    
+    // Animation Loop
+    let startTime = null;
+    
+    function animate(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
         const progress = Math.min(1, elapsed / duration);
+        
+        // Easing für smootheren Übergang (ease-in-out)
+        const easedProgress = progress < 0.5 
+            ? 2 * progress * progress 
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
         
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         
         // Altes Bild (fading out)
-        if (oldImg.complete) {
-            overlayCtx.globalAlpha = 0.7 * (1 - progress);
-            drawImageToOverlay(oldImg);
+        if (oldDims && oldImg) {
+            overlayCtx.globalAlpha = baseOpacity * (1 - easedProgress);
+            overlayCtx.drawImage(oldImg, oldDims.x, oldDims.y, oldDims.w, oldDims.h);
         }
         
         // Neues Bild (fading in)
-        overlayCtx.globalAlpha = 0.7 * progress;
-        drawImageToOverlay(newImg);
+        if (newDims) {
+            overlayCtx.globalAlpha = baseOpacity * easedProgress;
+            overlayCtx.drawImage(newImg, newDims.x, newDims.y, newDims.w, newDims.h);
+        }
+        
+        overlayCtx.globalAlpha = 1;
         
         if (progress < 1) {
             requestAnimationFrame(animate);
+        } else {
+            // Animation fertig - aktuelles Bild für nächsten Crossfade speichern
+            aiState.bufferImage = newImg.src;
         }
     }
     
-    oldImg.onload = animate;
-    if (oldImg.complete) animate();
+    // Prüfe ob das alte Bild im Cache ist (INSTANT!)
+    if (oldImgUrl && preloadedImages.has(oldImgUrl)) {
+        console.log('⚡ Crossfade: Using cached old image (instant)');
+        oldImg = preloadedImages.get(oldImgUrl);
+        oldDims = getScaledDimensions(oldImg);
+        newDims = getScaledDimensions(newImg);
+        requestAnimationFrame(animate);
+        return;
+    }
+    
+    // Nicht im Cache - muss geladen werden (Fallback)
+    if (oldImgUrl) {
+        console.log('⏳ Crossfade: Loading old image (not cached)');
+        oldImg = new Image();
+        oldImg.crossOrigin = 'anonymous';
+        oldImg.src = oldImgUrl;
+        
+        oldImg.decode().then(() => {
+            oldDims = getScaledDimensions(oldImg);
+            newDims = getScaledDimensions(newImg);
+            // Zum Cache hinzufügen für nächstes Mal
+            preloadedImages.set(oldImgUrl, oldImg);
+            requestAnimationFrame(animate);
+        }).catch(() => {
+            // Ohne altes Bild starten
+            newDims = getScaledDimensions(newImg);
+            requestAnimationFrame(animate);
+        });
+    } else {
+        // Kein altes Bild - nur neues einblenden
+        newDims = getScaledDimensions(newImg);
+        requestAnimationFrame(animate);
+    }
 }
 
 /**
@@ -1308,7 +2075,7 @@ async function generateImageStream(prompt) {
         statusEl.style.color = '#4af';
     }
     
-    const workflow = createWorkflow(prompt, aiState.model);
+    const workflow = await createWorkflow(prompt, aiState.model);
     
     try {
         const queueResponse = await fetch(`${aiState.comfyUrl}/prompt`, {
@@ -1436,6 +2203,9 @@ export function startPlayback() {
     aiState.playbackActive = true;
     console.log(`▶ Starting playback at ${aiState.playbackSpeed}ms interval`);
     
+    // ALLE Buffer-Bilder preloaden für flüssiges Crossfade!
+    preloadAllBufferImages();
+    
     // Erstes Bild sofort zeigen
     displayImage(aiState.bufferImages[aiState.bufferIndex]);
     
@@ -1445,6 +2215,37 @@ export function startPlayback() {
     }, aiState.playbackSpeed);
     
     updatePlaybackUI();
+}
+
+/**
+ * Preloaded ALLE Bilder im Buffer für ruckelfreies Playback
+ */
+function preloadAllBufferImages() {
+    const total = aiState.bufferImages.length;
+    console.log(`📦 Preloading ${total} buffer images...`);
+    
+    let loaded = 0;
+    
+    aiState.bufferImages.forEach((url) => {
+        if (preloadedImages.has(url)) {
+            loaded++;
+            return;
+        }
+        
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = url;
+        
+        img.decode().then(() => {
+            preloadedImages.set(url, img);
+            loaded++;
+            if (loaded === total) {
+                console.log(`✅ All ${total} buffer images preloaded!`);
+            }
+        }).catch(() => {
+            loaded++;
+        });
+    });
 }
 
 /**
@@ -1496,6 +2297,57 @@ export function nextBufferImage() {
     
     displayImage(aiState.bufferImages[aiState.bufferIndex]);
     updateBufferThumbnails();
+    
+    // Preload nächstes Bild für flüssigen Übergang
+    preloadNextImage();
+}
+
+/**
+ * Preloaded das nächste Bild im Buffer
+ */
+function preloadNextImage() {
+    if (aiState.bufferImages.length <= 1) return;
+    
+    // Nächster Index berechnen
+    let nextIndex;
+    if (aiState.bufferShuffle) {
+        // Bei Shuffle: Alle nicht-gecachten Bilder preloaden
+        for (let i = 0; i < Math.min(3, aiState.bufferImages.length); i++) {
+            const randomIndex = Math.floor(Math.random() * aiState.bufferImages.length);
+            preloadImageUrl(aiState.bufferImages[randomIndex]);
+        }
+        return;
+    } else {
+        nextIndex = (aiState.bufferIndex + 1) % aiState.bufferImages.length;
+    }
+    
+    const nextUrl = aiState.bufferImages[nextIndex];
+    preloadImageUrl(nextUrl);
+}
+
+/**
+ * Preloaded ein Bild und speichert es dekodiert im Cache
+ */
+function preloadImageUrl(url) {
+    if (!url || preloadedImages.has(url)) return;
+    
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+    
+    img.decode().then(() => {
+        preloadedImages.set(url, img);
+        console.log('💾 Preloaded image:', url.substring(0, 50) + '...');
+        
+        // Cache auf max 10 Bilder begrenzen
+        if (preloadedImages.size > 10) {
+            const firstKey = preloadedImages.keys().next().value;
+            preloadedImages.delete(firstKey);
+        }
+    }).catch((e) => {
+        // Silently ignore preload failures
+        console.debug('Preload failed:', url.substring(0, 30));
+    });
 }
 
 /**
@@ -1578,10 +2430,9 @@ export function clearBuffer() {
 // ============================================
 
 /**
- * Aktualisiert Prompt von Speech Input mit Buffer-System
- * - Akkumuliert erkannte Wörter über Zeit
+ * Aktualisiert Prompt von Speech Input
+ * - Überschreibt den Buffer bei jedem neuen Input
  * - Cleared automatisch nach X Sekunden Stille
- * - Vermeidet Duplikate
  */
 export function updateFromSpeech(rawText, filteredText) {
     const textToUse = filteredText || rawText;
@@ -1600,19 +2451,12 @@ export function updateFromSpeech(rawText, filteredText) {
     // Timestamp aktualisieren
     speechLastUpdate = Date.now();
     
-    // Neue Wörter zum Buffer hinzufügen (Duplikate vermeiden)
-    for (const word of newWords) {
-        const wordLower = word.toLowerCase();
-        // Nur hinzufügen wenn nicht bereits vorhanden (letzte 10 Wörter)
-        const recentWords = speechBuffer.slice(-10).map(w => w.toLowerCase());
-        if (!recentWords.includes(wordLower)) {
-            speechBuffer.push(word);
-        }
-    }
+    // Buffer KOMPLETT ÜBERSCHREIBEN (nicht akkumulieren)
+    speechBuffer = [...newWords];
     
-    // Buffer-Größe begrenzen (max 20 Wörter)
-    while (speechBuffer.length > 20) {
-        speechBuffer.shift();
+    // Zur Wordcloud hinzufügen (sammelt weiterhin alle Wörter)
+    for (const word of newWords) {
+        addToWordcloud(word);
     }
     
     // Aktuellen Prompt aus Buffer erstellen
@@ -1655,6 +2499,11 @@ export function updateFromSpeech(rawText, filteredText) {
         }, AUTO_GEN_DELAY);
     }
     
+    // Mini AI Auto-Mode: Schnelle Vorschau generieren
+    if (miniAiState.autoMode && bufferedPrompt.length > 2 && !miniAiState.generating) {
+        generateMiniImage(bufferedPrompt);
+    }
+    
     console.log(`🗣️ Speech Buffer [${speechBuffer.length}]: "${bufferedPrompt}"`);
 }
 
@@ -1690,6 +2539,370 @@ export function setSpeechBufferTimeout(ms) {
  */
 export function getSpeechBuffer() {
     return [...speechBuffer];
+}
+
+// ============================================
+// WORDCLOUD
+// ============================================
+
+/**
+ * Fügt Wort zur Wordcloud hinzu
+ */
+function addToWordcloud(word) {
+    const wordLower = word.toLowerCase();
+    const now = Date.now();
+    
+    if (wordcloudWords[wordLower]) {
+        wordcloudWords[wordLower].count++;
+        wordcloudWords[wordLower].lastSeen = now;
+    } else {
+        wordcloudWords[wordLower] = {
+            original: word,
+            count: 1,
+            lastSeen: now
+        };
+    }
+    
+    renderWordcloud();
+}
+
+/**
+ * Rendert die Wordcloud
+ */
+function renderWordcloud() {
+    if (!wordcloudContainer) {
+        wordcloudContainer = document.getElementById('wordcloudContainer');
+    }
+    if (!wordcloudContainer) return;
+    
+    // Sortiere nach Häufigkeit
+    const sorted = Object.entries(wordcloudWords)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 30); // Max 30 Wörter
+    
+    if (sorted.length === 0) {
+        wordcloudContainer.innerHTML = '<span style="color: #444; font-size: 8px; font-style: italic;">Warte auf Speech...</span>';
+        return;
+    }
+    
+    // Max count für Skalierung
+    const maxCount = Math.max(...sorted.map(([_, data]) => data.count));
+    
+    // Farben basierend auf Aktualität
+    const now = Date.now();
+    
+    wordcloudContainer.innerHTML = '';
+    
+    sorted.forEach(([wordLower, data]) => {
+        const span = document.createElement('span');
+        span.className = 'wordcloud-word';
+        span.textContent = data.original;
+        span.dataset.word = data.original;
+        
+        // Größe basierend auf Häufigkeit (8-18px)
+        const size = 8 + (data.count / maxCount) * 10;
+        span.style.fontSize = size + 'px';
+        
+        // Farbe basierend auf Aktualität (grün = neu, grau = alt)
+        const age = now - data.lastSeen;
+        if (age < 2000) {
+            span.style.color = '#4f4'; // Grün = gerade erkannt
+            span.style.textShadow = '0 0 4px #4f4';
+        } else if (age < 10000) {
+            span.style.color = '#ff0'; // Gelb = vor kurzem
+        } else {
+            span.style.color = '#888'; // Grau = älter
+        }
+        
+        // Opacity basierend auf count
+        span.style.opacity = 0.5 + (data.count / maxCount) * 0.5;
+        
+        // Klick -> zum Prompt hinzufügen
+        span.addEventListener('click', () => {
+            addWordToPrompt(data.original);
+            // Visuelles Feedback
+            span.style.transform = 'scale(1.3)';
+            span.style.color = '#4af';
+            setTimeout(() => {
+                span.style.transform = '';
+            }, 200);
+        });
+        
+        // Doppelklick -> Wort entfernen
+        span.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            removeFromWordcloud(wordLower);
+        });
+        
+        wordcloudContainer.appendChild(span);
+    });
+}
+
+/**
+ * Fügt Wort zum Prompt Input hinzu
+ */
+function addWordToPrompt(word) {
+    if (!promptInputEl) return;
+    
+    const currentPrompt = promptInputEl.value.trim();
+    if (currentPrompt) {
+        // Prüfe ob Wort bereits im Prompt
+        const words = currentPrompt.toLowerCase().split(/\s+/);
+        if (!words.includes(word.toLowerCase())) {
+            promptInputEl.value = currentPrompt + ' ' + word;
+        }
+    } else {
+        promptInputEl.value = word;
+    }
+    
+    aiState.currentPrompt = promptInputEl.value;
+    refreshPromptDebug();
+    console.log('☁️ Added to prompt:', word);
+}
+
+/**
+ * Entfernt Wort aus Wordcloud
+ */
+function removeFromWordcloud(wordLower) {
+    delete wordcloudWords[wordLower];
+    renderWordcloud();
+    console.log('🗑 Removed from wordcloud:', wordLower);
+}
+
+/**
+ * Leert die Wordcloud komplett
+ */
+export function clearWordcloud() {
+    wordcloudWords = {};
+    renderWordcloud();
+    console.log('🗑 Wordcloud cleared');
+}
+
+// ============================================
+// MINI AI (128x128 Quick Preview)
+// ============================================
+
+/**
+ * Generiert ein Mini-Bild (128x128) für schnelle Vorschau
+ */
+export async function generateMiniImage(prompt) {
+    if (!aiState.connected || miniAiState.generating) {
+        console.log('Mini AI: Cannot generate');
+        return null;
+    }
+    
+    if (!prompt || prompt.trim() === '') {
+        prompt = promptInputEl?.value.trim() || aiState.currentPrompt;
+    }
+    
+    if (!prompt) {
+        console.log('Mini AI: No prompt');
+        return null;
+    }
+    
+    miniAiState.generating = true;
+    miniAiState.lastPrompt = prompt;
+    const startTime = Date.now();
+    
+    if (miniAiStatusEl) {
+        miniAiStatusEl.textContent = '🎨 Generating...';
+        miniAiStatusEl.style.color = '#ff0';
+    }
+    
+    // Seed generieren
+    const seed = Math.floor(Math.random() * 1000000000);
+    miniAiState.lastSeed = seed;
+    
+    // Mini Workflow (128x128, minimal steps)
+    const workflow = createMiniWorkflow(prompt, seed);
+    
+    try {
+        const queueResponse = await fetch(`${aiState.comfyUrl}/prompt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: workflow })
+        });
+        
+        if (!queueResponse.ok) {
+            throw new Error('Failed to queue mini prompt');
+        }
+        
+        const queueData = await queueResponse.json();
+        const promptId = queueData.prompt_id;
+        
+        // Poll for completion (shorter timeout for mini)
+        const imageUrl = await pollForCompletion(promptId, 60);
+        
+        if (imageUrl) {
+            const elapsed = Date.now() - startTime;
+            miniAiState.lastImage = imageUrl;
+            miniAiState.generating = false;
+            
+            // Preview aktualisieren
+            if (miniAiPreviewEl) {
+                miniAiPreviewEl.innerHTML = '';
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                img.crossOrigin = 'anonymous';
+                miniAiPreviewEl.appendChild(img);
+            }
+            
+            if (miniAiStatusEl) {
+                miniAiStatusEl.textContent = '✅ Ready';
+                miniAiStatusEl.style.color = '#4f4';
+            }
+            
+            if (miniAiTimeEl) {
+                miniAiTimeEl.textContent = `${(elapsed / 1000).toFixed(1)}s | Seed: ${seed}`;
+            }
+            
+            console.log(`🖼️ Mini AI: ${elapsed}ms, seed ${seed}`);
+            return imageUrl;
+        }
+        
+    } catch (e) {
+        console.error('Mini AI error:', e);
+        if (miniAiStatusEl) {
+            miniAiStatusEl.textContent = '❌ Error';
+            miniAiStatusEl.style.color = '#f44';
+        }
+    }
+    
+    miniAiState.generating = false;
+    return null;
+}
+
+/**
+ * Erstellt Mini-Workflow (128x128, 1-2 steps)
+ */
+function createMiniWorkflow(prompt, seed) {
+    // Einfacher Prompt ohne Modifier für Speed
+    const negativePrompt = 'ugly, blurry';
+    
+    return {
+        "3": {
+            "class_type": "KSampler",
+            "inputs": {
+                "seed": seed,
+                "steps": 1,
+                "cfg": 1,
+                "sampler_name": "euler",
+                "scheduler": "normal",
+                "denoise": 1,
+                "model": ["4", 0],
+                "positive": ["6", 0],
+                "negative": ["7", 0],
+                "latent_image": ["5", 0]
+            }
+        },
+        "4": {
+            "class_type": "CheckpointLoaderSimple",
+            "inputs": {
+                "ckpt_name": getCheckpointName(aiState.model)
+            }
+        },
+        "5": {
+            "class_type": "EmptyLatentImage",
+            "inputs": {
+                "width": 128,
+                "height": 128,
+                "batch_size": 1
+            }
+        },
+        "6": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": prompt,
+                "clip": ["4", 1]
+            }
+        },
+        "7": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": negativePrompt,
+                "clip": ["4", 1]
+            }
+        },
+        "8": {
+            "class_type": "VAEDecode",
+            "inputs": {
+                "samples": ["3", 0],
+                "vae": ["4", 2]
+            }
+        },
+        "9": {
+            "class_type": "PreviewImage",
+            "inputs": {
+                "images": ["8", 0]
+            }
+        }
+    };
+}
+
+/**
+ * Generiert Hauptbild mit dem Seed vom Mini AI
+ */
+export async function generateFromMiniSeed() {
+    if (!miniAiState.lastSeed || !miniAiState.lastPrompt) {
+        console.warn('No mini seed available');
+        return;
+    }
+    
+    // Setze den Seed manuell im nächsten Generate
+    console.log(`🎲 Using mini seed: ${miniAiState.lastSeed}`);
+    
+    // Kopiere Seed in Clipboard
+    try {
+        await navigator.clipboard.writeText(miniAiState.lastSeed.toString());
+        if (miniAiTimeEl) {
+            const original = miniAiTimeEl.textContent;
+            miniAiTimeEl.textContent = '✅ Seed copied!';
+            setTimeout(() => {
+                miniAiTimeEl.textContent = original;
+            }, 1000);
+        }
+    } catch (e) {
+        console.error('Copy failed:', e);
+    }
+}
+
+/**
+ * Sendet Mini-Bild an Haupt-Preview
+ */
+export function miniToMain() {
+    if (!miniAiState.lastImage) {
+        console.warn('No mini image available');
+        return;
+    }
+    
+    // Zeige Mini-Bild im Haupt-Preview
+    aiState.currentImage = miniAiState.lastImage;
+    displayImage(miniAiState.lastImage);
+    
+    console.log('↗️ Mini image sent to main');
+}
+
+/**
+ * Toggle Mini AI Auto-Mode
+ */
+export function toggleMiniAiAuto() {
+    miniAiState.autoMode = !miniAiState.autoMode;
+    
+    const btn = document.getElementById('miniAiAuto');
+    if (btn) {
+        if (miniAiState.autoMode) {
+            btn.classList.add('active');
+            btn.style.background = 'linear-gradient(135deg, #f80, #a40)';
+        } else {
+            btn.classList.remove('active');
+            btn.style.background = '';
+        }
+    }
+    
+    console.log('Mini AI Auto:', miniAiState.autoMode ? 'ON' : 'OFF');
 }
 
 // ============================================
@@ -2543,11 +3756,79 @@ export function initAiUI() {
     updateResolutionDisplay();
     
     // ============================================
+    // REGENERATE BUTTONS
+    // ============================================
+    
+    // Regenerate Button (neben Prompt Input)
+    const regenerateBtn = document.getElementById('aiRegenerateBtn');
+    if (regenerateBtn) {
+        regenerateBtn.addEventListener('click', () => {
+            const prompt = aiState.lastGeneratedPrompt || promptInputEl?.value.trim() || aiState.currentPrompt;
+            if (prompt) {
+                console.log('🔄 Regenerating with prompt:', prompt);
+                generateImage(prompt);
+            } else {
+                console.warn('No prompt to regenerate');
+            }
+        });
+    }
+    
+    // Regenerate Overlay Button (auf Preview)
+    const regenerateOverlayBtn = document.getElementById('aiRegenerateOverlay');
+    if (regenerateOverlayBtn) {
+        regenerateOverlayBtn.addEventListener('click', () => {
+            const prompt = aiState.lastGeneratedPrompt || promptInputEl?.value.trim() || aiState.currentPrompt;
+            if (prompt) {
+                console.log('🔄 Regenerating with prompt:', prompt);
+                generateImage(prompt);
+            } else {
+                console.warn('No prompt to regenerate');
+            }
+        });
+    }
+    
+    // Generate from Debug Panel
+    const regenerateFromDebugBtn = document.getElementById('aiRegenerateFromDebug');
+    if (regenerateFromDebugBtn) {
+        regenerateFromDebugBtn.addEventListener('click', () => {
+            const prompt = promptInputEl?.value.trim() || aiState.currentPrompt;
+            if (prompt) {
+                console.log('🎨 Generating from debug panel:', prompt);
+                generateImage(prompt);
+            } else {
+                console.warn('No prompt to generate');
+            }
+        });
+    }
+    
+    // ============================================
     // PROMPT DEBUG CONTROLS
     // ============================================
     
     const debugCopyBtn = document.getElementById('aiDebugCopyPrompt');
     const debugRefreshBtn = document.getElementById('aiDebugRefresh');
+    const clearSpeechBufferBtn = document.getElementById('aiClearSpeechBuffer');
+    
+    // Clear Speech Buffer Button
+    if (clearSpeechBufferBtn) {
+        clearSpeechBufferBtn.addEventListener('click', () => {
+            clearSpeechBuffer();
+            // Alle Prompt-States leeren
+            if (promptInputEl) promptInputEl.value = '';
+            aiState.currentPrompt = '';
+            aiState.lastTranslatedPrompt = '';
+            // Debug-Anzeige aktualisieren
+            refreshPromptDebug();
+            // Visuelles Feedback
+            clearSpeechBufferBtn.textContent = '✅';
+            clearSpeechBufferBtn.style.background = '#2a5';
+            setTimeout(() => {
+                clearSpeechBufferBtn.textContent = '🗑';
+                clearSpeechBufferBtn.style.background = '';
+            }, 1000);
+            console.log('🗑️ Prompt cache cleared');
+        });
+    }
     
     if (debugCopyBtn) {
         debugCopyBtn.addEventListener('click', async () => {
@@ -2555,10 +3836,10 @@ export function initAiUI() {
             if (finalPrompt && finalPrompt !== '-') {
                 try {
                     await navigator.clipboard.writeText(finalPrompt);
-                    debugCopyBtn.textContent = '✅ Copied!';
+                    debugCopyBtn.textContent = '✅';
                     debugCopyBtn.style.background = '#2a5';
                     setTimeout(() => {
-                        debugCopyBtn.textContent = '📋 Copy Final Prompt';
+                        debugCopyBtn.textContent = '📋 Copy';
                         debugCopyBtn.style.background = '';
                     }, 1500);
                 } catch (e) {
@@ -2571,10 +3852,10 @@ export function initAiUI() {
     if (debugRefreshBtn) {
         debugRefreshBtn.addEventListener('click', () => {
             refreshPromptDebug();
-            debugRefreshBtn.textContent = '✅ Updated!';
+            debugRefreshBtn.textContent = '✅';
             debugRefreshBtn.style.background = '#2a5';
             setTimeout(() => {
-                debugRefreshBtn.textContent = '🔄 Refresh';
+                debugRefreshBtn.textContent = '🔄';
                 debugRefreshBtn.style.background = '';
             }, 1000);
         });
@@ -2597,6 +3878,183 @@ export function initAiUI() {
             });
         }
     });
+    
+    // ============================================
+    // TRANSLATION PANEL CONTROLS
+    // ============================================
+    
+    const translateEnabledEl = document.getElementById('translateEnabled');
+    const translateDictionaryEl = document.getElementById('translateDictionary');
+    const translateCompoundEl = document.getElementById('translateCompound');
+    const translateStemmingEl = document.getElementById('translateStemming');
+    const translateFuzzyEl = document.getElementById('translateFuzzy');
+    const translateSkipGermanEl = document.getElementById('translateSkipGerman');
+    const fuzzyMaxDistanceEl = document.getElementById('fuzzyMaxDistance');
+    const fuzzyMaxDistanceValueEl = document.getElementById('fuzzyMaxDistanceValue');
+    const translateUseApiEl = document.getElementById('translateUseApi');
+    const translateApiUrlEl = document.getElementById('translateApiUrl');
+    const translateDictCountEl = document.getElementById('translateDictCount');
+    const translateStopCountEl = document.getElementById('translateStopCount');
+    
+    // Update stats display
+    if (translateDictCountEl) {
+        translateDictCountEl.textContent = `${Object.keys(DE_EN_DICTIONARY).length} Wörter`;
+    }
+    if (translateStopCountEl) {
+        translateStopCountEl.textContent = `${GERMAN_STOPWORDS.size} Wörter`;
+    }
+    
+    // Master toggle
+    if (translateEnabledEl) {
+        translateEnabledEl.checked = aiState.translateEnabled;
+        translateEnabledEl.addEventListener('change', (e) => {
+            aiState.translateEnabled = e.target.checked;
+            console.log('🌐 Translation:', aiState.translateEnabled ? 'enabled' : 'disabled');
+            refreshPromptDebug();
+        });
+    }
+    
+    // Dictionary toggle
+    if (translateDictionaryEl) {
+        translateDictionaryEl.checked = aiState.translateDictionary;
+        translateDictionaryEl.addEventListener('change', (e) => {
+            aiState.translateDictionary = e.target.checked;
+            console.log('📖 Dictionary:', aiState.translateDictionary ? 'on' : 'off');
+            refreshPromptDebug();
+        });
+    }
+    
+    // Compound toggle
+    if (translateCompoundEl) {
+        translateCompoundEl.checked = aiState.translateCompound;
+        translateCompoundEl.addEventListener('change', (e) => {
+            aiState.translateCompound = e.target.checked;
+            console.log('🔗 Compound:', aiState.translateCompound ? 'on' : 'off');
+            refreshPromptDebug();
+        });
+    }
+    
+    // Stemming toggle
+    if (translateStemmingEl) {
+        translateStemmingEl.checked = aiState.translateStemming;
+        translateStemmingEl.addEventListener('change', (e) => {
+            aiState.translateStemming = e.target.checked;
+            console.log('✂️ Stemming:', aiState.translateStemming ? 'on' : 'off');
+            refreshPromptDebug();
+        });
+    }
+    
+    // Fuzzy toggle
+    if (translateFuzzyEl) {
+        translateFuzzyEl.checked = aiState.translateFuzzy;
+        translateFuzzyEl.addEventListener('change', (e) => {
+            aiState.translateFuzzy = e.target.checked;
+            console.log('🔍 Fuzzy:', aiState.translateFuzzy ? 'on' : 'off');
+            refreshPromptDebug();
+        });
+    }
+    
+    // Skip German toggle
+    if (translateSkipGermanEl) {
+        translateSkipGermanEl.checked = aiState.translateSkipGerman;
+        translateSkipGermanEl.addEventListener('change', (e) => {
+            aiState.translateSkipGerman = e.target.checked;
+            console.log('🚫 Skip German:', aiState.translateSkipGerman ? 'on' : 'off');
+            refreshPromptDebug();
+        });
+    }
+    
+    // Fuzzy max distance slider
+    if (fuzzyMaxDistanceEl) {
+        fuzzyMaxDistanceEl.value = aiState.fuzzyMaxDistance || 0;
+        const updateFuzzyDisplay = () => {
+            const val = parseInt(fuzzyMaxDistanceEl.value);
+            aiState.fuzzyMaxDistance = val;
+            if (fuzzyMaxDistanceValueEl) {
+                fuzzyMaxDistanceValueEl.textContent = val === 0 ? 'auto' : val.toString();
+            }
+        };
+        updateFuzzyDisplay();
+        fuzzyMaxDistanceEl.addEventListener('input', () => {
+            updateFuzzyDisplay();
+            console.log('🔍 Fuzzy max distance:', aiState.fuzzyMaxDistance === 0 ? 'auto' : aiState.fuzzyMaxDistance);
+            refreshPromptDebug();
+        });
+    }
+    
+    // API toggle
+    if (translateUseApiEl) {
+        translateUseApiEl.checked = aiState.useApiTranslation;
+        translateUseApiEl.addEventListener('change', (e) => {
+            aiState.useApiTranslation = e.target.checked;
+            console.log('🌐 API Translation:', aiState.useApiTranslation ? 'on' : 'off');
+        });
+    }
+    
+    // API URL
+    if (translateApiUrlEl) {
+        translateApiUrlEl.value = aiState.translateApiUrl || '';
+        translateApiUrlEl.addEventListener('change', (e) => {
+            aiState.translateApiUrl = e.target.value.trim();
+            console.log('🌐 API URL:', aiState.translateApiUrl);
+        });
+    }
+    
+    // ============================================
+    // WORDCLOUD CONTROLS
+    // ============================================
+    
+    wordcloudContainer = document.getElementById('wordcloudContainer');
+    
+    const wordcloudClearBtn = document.getElementById('wordcloudClear');
+    if (wordcloudClearBtn) {
+        wordcloudClearBtn.addEventListener('click', () => {
+            clearWordcloud();
+            // Visuelles Feedback
+            wordcloudClearBtn.textContent = '✅';
+            setTimeout(() => {
+                wordcloudClearBtn.textContent = '🗑 Clear';
+            }, 800);
+        });
+    }
+    
+    // Periodischer Refresh für Farb-Updates (alle 2 Sekunden)
+    if (wordcloudRefreshTimer) clearInterval(wordcloudRefreshTimer);
+    wordcloudRefreshTimer = setInterval(() => {
+        if (Object.keys(wordcloudWords).length > 0) {
+            renderWordcloud();
+        }
+    }, 2000);
+    
+    // ============================================
+    // MINI AI CONTROLS
+    // ============================================
+    
+    miniAiPreviewEl = document.getElementById('miniAiPreview');
+    miniAiStatusEl = document.getElementById('miniAiStatus');
+    miniAiTimeEl = document.getElementById('miniAiTime');
+    
+    const miniAiGenerateBtn = document.getElementById('miniAiGenerate');
+    if (miniAiGenerateBtn) {
+        miniAiGenerateBtn.addEventListener('click', () => {
+            generateMiniImage();
+        });
+    }
+    
+    const miniAiAutoBtn = document.getElementById('miniAiAuto');
+    if (miniAiAutoBtn) {
+        miniAiAutoBtn.addEventListener('click', toggleMiniAiAuto);
+    }
+    
+    const miniAiToMainBtn = document.getElementById('miniAiToMain');
+    if (miniAiToMainBtn) {
+        miniAiToMainBtn.addEventListener('click', miniToMain);
+    }
+    
+    const miniAiToPromptBtn = document.getElementById('miniAiToPrompt');
+    if (miniAiToPromptBtn) {
+        miniAiToPromptBtn.addEventListener('click', generateFromMiniSeed);
+    }
     
     // ============================================
     // SPEECH BUFFER TIMEOUT SLIDER

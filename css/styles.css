@@ -1976,3 +1976,82 @@ body.panels-collapsed #streamStatus {
     background: linear-gradient(90deg, #4f4, #4af);
     transition: width 0.3s;
 }
+
+/* === WORDCLOUD STYLES === */
+#wordcloudContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    min-height: 50px;
+}
+
+.wordcloud-word {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.05);
+    transition: all 0.15s ease;
+    user-select: none;
+    font-weight: 500;
+}
+
+.wordcloud-word:hover {
+    background: rgba(68, 170, 255, 0.2);
+    transform: scale(1.1);
+    color: #4af !important;
+    text-shadow: 0 0 6px #4af !important;
+}
+
+.wordcloud-word:active {
+    transform: scale(0.95);
+}
+
+/* Song Recognition & Lyrics */
+.lyric-line {
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    color: #888;
+}
+
+.lyric-line:hover {
+    background: rgba(68, 136, 255, 0.1);
+    color: #aaf;
+}
+
+.lyric-line.active {
+    background: linear-gradient(90deg, rgba(68, 136, 255, 0.3), transparent);
+    color: #fff;
+    font-weight: bold;
+    border-left: 3px solid #48f;
+    padding-left: 8px;
+}
+
+#currentLyricLine {
+    text-shadow: 0 0 20px rgba(68, 136, 255, 0.5);
+}
+
+#songInfo {
+    transition: all 0.3s ease;
+}
+
+#lyricsContainer::-webkit-scrollbar {
+    width: 4px;
+}
+
+#lyricsContainer::-webkit-scrollbar-track {
+    background: #111;
+}
+
+#lyricsContainer::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 2px;
+}
+
+#lyricsContainer::-webkit-scrollbar-thumb:hover {
+    background: #48f;
+}

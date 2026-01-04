@@ -20,3 +20,6 @@ npm-debug.log*
 
 # Backup folder
 _backup/
+
+# Internal docs (not public)
+docs/MONETIZATION_EVAL.md

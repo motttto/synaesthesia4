@@ -44,7 +44,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     downloadWhisperModel: (model) => ipcRenderer.invoke('whisper-download-model', model),
     
     // Transcribe audio with whisper
-    transcribeWhisper: (options) => ipcRenderer.invoke('whisper-transcribe', options)
+    transcribeWhisper: (options) => ipcRenderer.invoke('whisper-transcribe', options),
+    
+    // ============================================
+    // SONG RECOGNITION (AcoustID)
+    // ============================================
+    
+    // Calculate audio fingerprint using fpcalc/chromaprint
+    calculateFingerprint: (audioData) => ipcRenderer.invoke('calculate-fingerprint', audioData)
 });
 
 console.log('Synästhesie Electron App geladen');
