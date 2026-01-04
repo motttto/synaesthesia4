@@ -1456,6 +1456,7 @@ body.panels-collapsed #streamStatus {
     text-align: center;
     transition: all 0.2s;
     cursor: pointer;
+    position: relative; /* For custom model indicator */
 }
 .interval-card:hover {
     border-color: #4a8ac4;
