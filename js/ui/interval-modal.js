@@ -12,6 +12,7 @@
  * - Set selection (set_01, set_02, etc.)
  * - 3D model preview in modal
  * - Static 3D thumbnails for each interval card (single renderer)
+ * - Custom GLB import
  */
 
 import { THREE } from '../core/three-setup.js';
@@ -79,6 +80,10 @@ const thumbCache = new Map(); // intervalId -> dataURL
 let selectedInterval = null;
 let currentPreviewSet = 'set_01';
 
+// Custom GLB Models Storage
+const customModels = new Map(); // intervalId -> { name, blob, dataURL }
+let customModelsList = []; // List of all imported custom models
+
 // Shared loader
 const sharedLoader = new GLTFLoader();
 
@@ -135,6 +140,9 @@ export function initIntervalModal(modelSetPath = '3d-models/set_01') {
     // Initialize Renderers
     initPreviewRenderer();
     initThumbRenderer();
+    
+    // Initialize GLB Import UI
+    initGlbImportUI();
     
     console.log('Interval Modal initialized');
 }
@@ -703,4 +711,513 @@ export function setModelSet(setName) {
     if (setSelectEl) {
         setSelectEl.value = setName;
     }
+}
+
+// ============================================
+// GLB IMPORT FUNCTIONALITY
+// ============================================
+
+// GLB Import State
+let currentImportedModel = null; // { name, gltf, blob, url }
+let importedModelsList = []; // List of all imported models
+
+// UI Elements for GLB Import
+let glbFileInput = null;
+let glbUrlInput = null;
+let glbLoadUrlBtn = null;
+let glbImportStatus = null;
+let glbImportedInfo = null;
+let glbImportedName = null;
+let glbImportedDetails = null;
+let glbClearBtn = null;
+let glbUseAsCurrentBtn = null;
+let glbAssignToIntervalBtn = null;
+let glbImportedList = null;
+let glbImportedListContent = null;
+
+/**
+ * Initialize GLB Import UI (called from initIntervalModal)
+ */
+function initGlbImportUI() {
+    glbFileInput = document.getElementById('glbFileInput');
+    glbUrlInput = document.getElementById('glbUrlInput');
+    glbLoadUrlBtn = document.getElementById('glbLoadUrlBtn');
+    glbImportStatus = document.getElementById('glbImportStatus');
+    glbImportedInfo = document.getElementById('glbImportedInfo');
+    glbImportedName = document.getElementById('glbImportedName');
+    glbImportedDetails = document.getElementById('glbImportedDetails');
+    glbClearBtn = document.getElementById('glbClearBtn');
+    glbUseAsCurrentBtn = document.getElementById('glbUseAsCurrentBtn');
+    glbAssignToIntervalBtn = document.getElementById('glbAssignToIntervalBtn');
+    glbImportedList = document.getElementById('glbImportedList');
+    glbImportedListContent = document.getElementById('glbImportedListContent');
+    
+    // File Input Handler
+    if (glbFileInput) {
+        glbFileInput.addEventListener('change', handleGlbFileSelect);
+    }
+    
+    // URL Load Handler
+    if (glbLoadUrlBtn) {
+        glbLoadUrlBtn.addEventListener('click', handleGlbUrlLoad);
+    }
+    
+    // Enter key in URL input
+    if (glbUrlInput) {
+        glbUrlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                handleGlbUrlLoad();
+            }
+        });
+    }
+    
+    // Clear Button
+    if (glbClearBtn) {
+        glbClearBtn.addEventListener('click', clearCurrentImport);
+    }
+    
+    // Use As Current Button
+    if (glbUseAsCurrentBtn) {
+        glbUseAsCurrentBtn.addEventListener('click', useImportedModelNow);
+    }
+    
+    // Assign to Interval Button
+    if (glbAssignToIntervalBtn) {
+        glbAssignToIntervalBtn.addEventListener('click', assignToSelectedInterval);
+    }
+    
+    console.log('GLB Import UI initialized');
+}
+
+/**
+ * Handle GLB file selection
+ */
+async function handleGlbFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.glb') && !file.name.endsWith('.gltf')) {
+        setGlbStatus('❌ Invalid file type. Use .glb or .gltf', 'error');
+        return;
+    }
+    
+    setGlbStatus('⏳ Loading...', 'loading');
+    
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' });
+        const url = URL.createObjectURL(blob);
+        
+        await loadGlbFromUrl(url, file.name, blob);
+        
+    } catch (err) {
+        console.error('GLB file load error:', err);
+        setGlbStatus(`❌ Error: ${err.message}`, 'error');
+    }
+    
+    // Reset file input
+    e.target.value = '';
+}
+
+/**
+ * Handle GLB URL load
+ */
+async function handleGlbUrlLoad() {
+    const url = glbUrlInput?.value?.trim();
+    if (!url) {
+        setGlbStatus('❌ Please enter a URL', 'error');
+        return;
+    }
+    
+    setGlbStatus('⏳ Loading from URL...', 'loading');
+    
+    try {
+        // Extract filename from URL
+        const urlObj = new URL(url);
+        const filename = urlObj.pathname.split('/').pop() || 'model.glb';
+        
+        await loadGlbFromUrl(url, filename, null);
+        
+    } catch (err) {
+        console.error('GLB URL load error:', err);
+        setGlbStatus(`❌ Error: ${err.message}`, 'error');
+    }
+}
+
+/**
+ * Load GLB from URL and show in preview
+ */
+async function loadGlbFromUrl(url, filename, blob = null) {
+    return new Promise((resolve, reject) => {
+        sharedLoader.load(
+            url,
+            (gltf) => {
+                // Success
+                currentImportedModel = {
+                    name: filename,
+                    gltf: gltf,
+                    blob: blob,
+                    url: url
+                };
+                
+                // Count vertices and faces
+                let vertexCount = 0;
+                let faceCount = 0;
+                gltf.scene.traverse((child) => {
+                    if (child.isMesh && child.geometry) {
+                        const geo = child.geometry;
+                        if (geo.attributes.position) {
+                            vertexCount += geo.attributes.position.count;
+                        }
+                        if (geo.index) {
+                            faceCount += geo.index.count / 3;
+                        } else if (geo.attributes.position) {
+                            faceCount += geo.attributes.position.count / 3;
+                        }
+                    }
+                });
+                
+                // Update UI
+                setGlbStatus('✅ Model loaded!', 'success');
+                showImportedModelInfo(filename, vertexCount, faceCount);
+                
+                // Show in preview
+                showImportedModelInPreview(gltf);
+                
+                // Add to list
+                addToImportedList(currentImportedModel);
+                
+                resolve(gltf);
+            },
+            (progress) => {
+                if (progress.total > 0) {
+                    const percent = Math.round((progress.loaded / progress.total) * 100);
+                    setGlbStatus(`⏳ Loading... ${percent}%`, 'loading');
+                }
+            },
+            (error) => {
+                reject(error);
+            }
+        );
+    });
+}
+
+/**
+ * Show imported model in preview renderer
+ */
+function showImportedModelInPreview(gltf) {
+    if (!previewScene) return;
+    
+    // Remove old model
+    if (previewModel) {
+        previewScene.remove(previewModel);
+        previewModel = null;
+    }
+    
+    previewModel = gltf.scene.clone();
+    
+    // Apply default material if needed
+    previewModel.traverse((child) => {
+        if (child.isMesh && child.material) {
+            // Keep original material but add emissive for visibility
+            if (child.material.emissive) {
+                child.material = child.material.clone();
+                child.material.emissive = new THREE.Color(0x222222);
+            }
+        }
+    });
+    
+    // Center and scale model
+    const box = new THREE.Box3().setFromObject(previewModel);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 1.5 / maxDim;
+    
+    previewModel.position.sub(center);
+    previewModel.scale.setScalar(scale);
+    
+    previewScene.add(previewModel);
+    
+    // Reset camera
+    if (previewCamera) {
+        previewCamera.position.set(0, 0, 3);
+    }
+    if (previewControls) {
+        previewControls.reset();
+    }
+    
+    // Update title
+    if (previewTitleEl) {
+        previewTitleEl.textContent = `📦 ${currentImportedModel?.name || 'Imported Model'}`;
+    }
+}
+
+/**
+ * Set GLB import status message
+ */
+function setGlbStatus(message, type = 'info') {
+    if (!glbImportStatus) return;
+    
+    glbImportStatus.textContent = message;
+    glbImportStatus.style.color = {
+        'error': '#f44',
+        'success': '#4f4',
+        'loading': '#ff4',
+        'info': '#888'
+    }[type] || '#888';
+}
+
+/**
+ * Show imported model info
+ */
+function showImportedModelInfo(name, vertices, faces) {
+    if (glbImportedInfo) {
+        glbImportedInfo.style.display = 'block';
+    }
+    if (glbImportedName) {
+        glbImportedName.textContent = name;
+    }
+    if (glbImportedDetails) {
+        glbImportedDetails.textContent = `Vertices: ${vertices.toLocaleString()} | Faces: ${Math.round(faces).toLocaleString()}`;
+    }
+    
+    // Enable buttons
+    if (glbUseAsCurrentBtn) {
+        glbUseAsCurrentBtn.disabled = false;
+    }
+    if (glbAssignToIntervalBtn) {
+        glbAssignToIntervalBtn.disabled = false;
+    }
+}
+
+/**
+ * Clear current import
+ */
+function clearCurrentImport() {
+    // Revoke blob URL if exists
+    if (currentImportedModel?.blob) {
+        URL.revokeObjectURL(currentImportedModel.url);
+    }
+    
+    currentImportedModel = null;
+    
+    // Update UI
+    if (glbImportedInfo) {
+        glbImportedInfo.style.display = 'none';
+    }
+    if (glbUseAsCurrentBtn) {
+        glbUseAsCurrentBtn.disabled = true;
+    }
+    if (glbAssignToIntervalBtn) {
+        glbAssignToIntervalBtn.disabled = true;
+    }
+    
+    setGlbStatus('No model loaded', 'info');
+    
+    // Clear URL input
+    if (glbUrlInput) {
+        glbUrlInput.value = '';
+    }
+    
+    // Reload current interval preview if one is selected
+    if (selectedInterval !== null) {
+        loadPreviewModel(selectedInterval);
+    }
+}
+
+/**
+ * Use imported model immediately in main scene
+ */
+async function useImportedModelNow() {
+    if (!currentImportedModel?.gltf) {
+        setGlbStatus('❌ No model loaded', 'error');
+        return;
+    }
+    
+    try {
+        // Import the loadCustomModel function
+        const { loadCustomModel } = await import('../models/model-manager.js');
+        
+        // Load the model into main scene
+        await loadCustomModel(currentImportedModel.gltf, currentImportedModel.name);
+        
+        setGlbStatus('✅ Model loaded into scene!', 'success');
+        
+        // Close modal
+        closeModal();
+        
+    } catch (err) {
+        console.error('Error loading custom model:', err);
+        setGlbStatus(`❌ Error: ${err.message}`, 'error');
+    }
+}
+
+/**
+ * Assign imported model to selected interval
+ */
+async function assignToSelectedInterval() {
+    if (!currentImportedModel?.gltf) {
+        setGlbStatus('❌ No model loaded', 'error');
+        return;
+    }
+    
+    if (selectedInterval === null) {
+        setGlbStatus('❌ Please select an interval first', 'error');
+        return;
+    }
+    
+    try {
+        // Store the model for this interval
+        customModels.set(selectedInterval, {
+            name: currentImportedModel.name,
+            gltf: currentImportedModel.gltf,
+            url: currentImportedModel.url
+        });
+        
+        const interval = intervalData.find(i => i.id === selectedInterval);
+        setGlbStatus(`✅ Assigned to ${interval?.name || 'interval'}!`, 'success');
+        
+        // Update thumbnail for this interval
+        await renderCustomThumbnail(selectedInterval, currentImportedModel.gltf);
+        
+        // Mark the card as custom
+        const card = gridEl?.querySelector(`[data-interval-id="${selectedInterval}"]`);
+        if (card) {
+            card.classList.add('has-custom-model');
+            card.setAttribute('title', `Custom: ${currentImportedModel.name}`);
+        }
+        
+    } catch (err) {
+        console.error('Error assigning model:', err);
+        setGlbStatus(`❌ Error: ${err.message}`, 'error');
+    }
+}
+
+/**
+ * Render thumbnail for custom model
+ */
+async function renderCustomThumbnail(intervalId, gltf) {
+    if (!thumbRenderer || !thumbScene) return null;
+    
+    // Clear scene
+    const toRemove = [];
+    thumbScene.traverse((child) => {
+        if (child.isMesh || child.isGroup) {
+            if (!child.isLight) toRemove.push(child);
+        }
+    });
+    toRemove.forEach(obj => {
+        if (obj.parent === thumbScene) thumbScene.remove(obj);
+    });
+    
+    const model = gltf.scene.clone();
+    
+    // Center and scale
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 1.5 / maxDim;
+    
+    model.position.sub(center);
+    model.scale.setScalar(scale);
+    model.rotation.y = Math.PI * 0.25;
+    model.rotation.x = Math.PI * 0.1;
+    
+    thumbScene.add(model);
+    thumbRenderer.render(thumbScene, thumbCamera);
+    
+    const dataURL = thumbRenderer.domElement.toDataURL('image/png');
+    thumbScene.remove(model);
+    
+    // Update cache and image
+    thumbCache.set(intervalId, dataURL);
+    const imgEl = document.getElementById(`thumb-img-${intervalId}`);
+    if (imgEl) {
+        imgEl.src = dataURL;
+        imgEl.style.display = 'block';
+    }
+    
+    return dataURL;
+}
+
+/**
+ * Add model to imported list
+ */
+function addToImportedList(modelData) {
+    // Check if already in list
+    const exists = importedModelsList.find(m => m.name === modelData.name);
+    if (!exists) {
+        importedModelsList.push({
+            name: modelData.name,
+            gltf: modelData.gltf,
+            url: modelData.url
+        });
+    }
+    
+    // Update list UI
+    updateImportedListUI();
+}
+
+/**
+ * Update imported models list UI
+ */
+function updateImportedListUI() {
+    if (!glbImportedList || !glbImportedListContent) return;
+    
+    if (importedModelsList.length === 0) {
+        glbImportedList.style.display = 'none';
+        return;
+    }
+    
+    glbImportedList.style.display = 'block';
+    glbImportedListContent.innerHTML = '';
+    
+    importedModelsList.forEach((model, index) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display: flex; align-items: center; gap: 4px; padding: 3px 4px; background: #1a1a1a; border-radius: 3px; cursor: pointer;';
+        item.innerHTML = `
+            <span style="font-size: 8px; color: #8f8; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${model.name}</span>
+            <button class="glb-list-use" style="padding: 2px 4px; font-size: 7px; background: #2a4a2a; border: none; border-radius: 2px; color: #8f8; cursor: pointer;">Use</button>
+            <button class="glb-list-remove" style="padding: 2px 4px; font-size: 7px; background: #4a2a2a; border: none; border-radius: 2px; color: #f88; cursor: pointer;">✕</button>
+        `;
+        
+        // Use button
+        item.querySelector('.glb-list-use').addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentImportedModel = model;
+            showImportedModelInPreview(model.gltf);
+            showImportedModelInfo(model.name, 0, 0); // Re-count would require traversal
+        });
+        
+        // Remove button
+        item.querySelector('.glb-list-remove').addEventListener('click', (e) => {
+            e.stopPropagation();
+            importedModelsList.splice(index, 1);
+            updateImportedListUI();
+        });
+        
+        // Click to show in preview
+        item.addEventListener('click', () => {
+            currentImportedModel = model;
+            showImportedModelInPreview(model.gltf);
+        });
+        
+        glbImportedListContent.appendChild(item);
+    });
+}
+
+/**
+ * Get custom model for interval (if assigned)
+ */
+export function getCustomModelForInterval(intervalId) {
+    return customModels.get(intervalId);
+}
+
+/**
+ * Check if interval has custom model
+ */
+export function hasCustomModel(intervalId) {
+    return customModels.has(intervalId);
 }

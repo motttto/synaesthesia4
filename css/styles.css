@@ -2200,3 +2200,47 @@ body.panels-collapsed #streamStatus {
     from { box-shadow: 0 0 5px #f00; }
     to { box-shadow: 0 0 15px #f00; }
 }
+
+/* ============================================
+   GLB IMPORT STYLES
+   ============================================ */
+
+/* GLB Import Button Hover */
+.glb-import-btn:hover {
+    background: #3a4a3a !important;
+    border-color: #5f5 !important;
+}
+
+/* Custom Model Card Indicator */
+.interval-card.has-custom-model {
+    border: 2px solid #4f4 !important;
+    box-shadow: 0 0 8px rgba(68, 255, 68, 0.3);
+}
+
+.interval-card.has-custom-model::after {
+    content: '📦';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 10px;
+}
+
+/* GLB List Item Hover */
+#glbImportedListContent > div:hover {
+    background: #2a2a2a !important;
+}
+
+/* Disabled Button Style */
+#glbUseAsCurrentBtn:disabled,
+#glbAssignToIntervalBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#glbUseAsCurrentBtn:not(:disabled):hover {
+    background: linear-gradient(135deg, #3a5a3a, #2a4a2a) !important;
+}
+
+#glbAssignToIntervalBtn:not(:disabled):hover {
+    background: linear-gradient(135deg, #3a4a5a, #2a3a4a) !important;
+}

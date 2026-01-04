@@ -2115,6 +2115,50 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- GLB Import Section -->
+                    <div class="import-section" style="margin-top: 12px; padding: 10px; background: linear-gradient(135deg, #1a2a1a, #0a1a0a); border: 1px solid #4a4; border-radius: 6px;">
+                        <div style="font-size: 10px; color: #4f4; margin-bottom: 8px; font-weight: bold;">📦 Import Custom 3D Model</div>
+                        
+                        <!-- File Input -->
+                        <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                            <label class="glb-import-btn" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; background: #2a3a2a; border: 1px dashed #4a4; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
+                                <span style="font-size: 16px;">📂</span>
+                                <span style="font-size: 9px; color: #8f8;">Select GLB/GLTF File</span>
+                                <input type="file" id="glbFileInput" accept=".glb,.gltf" style="display: none;">
+                            </label>
+                        </div>
+                        
+                        <!-- URL Input -->
+                        <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+                            <input type="text" id="glbUrlInput" placeholder="Or paste GLB URL..." style="flex: 1; padding: 6px; font-size: 8px; background: #1a1a1a; border: 1px solid #333; border-radius: 3px; color: #aaa;">
+                            <button id="glbLoadUrlBtn" class="reset-btn" style="margin: 0; padding: 6px 10px; font-size: 8px;">🔗 Load</button>
+                        </div>
+                        
+                        <!-- Import Status -->
+                        <div id="glbImportStatus" style="font-size: 8px; color: #666; margin-bottom: 6px;">No model loaded</div>
+                        
+                        <!-- Imported Model Info -->
+                        <div id="glbImportedInfo" style="display: none; padding: 6px; background: #0a150a; border-radius: 4px; margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span id="glbImportedName" style="font-size: 9px; color: #8f8; font-weight: bold;">model.glb</span>
+                                <button id="glbClearBtn" class="reset-btn" style="margin: 0; padding: 2px 6px; font-size: 7px;">✕</button>
+                            </div>
+                            <div id="glbImportedDetails" style="font-size: 7px; color: #666; margin-top: 2px;">Vertices: - | Faces: -</div>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div style="display: flex; gap: 4px;">
+                            <button id="glbUseAsCurrentBtn" class="reset-btn" style="flex: 1; margin: 0; padding: 6px; font-size: 8px; background: linear-gradient(135deg, #2a4a2a, #1a3a1a);" disabled>🎯 Use Now</button>
+                            <button id="glbAssignToIntervalBtn" class="reset-btn" style="flex: 1; margin: 0; padding: 6px; font-size: 8px; background: linear-gradient(135deg, #2a3a4a, #1a2a3a);" disabled>📌 Assign to Selected</button>
+                        </div>
+                        
+                        <!-- Imported Models List -->
+                        <div id="glbImportedList" style="margin-top: 8px; max-height: 100px; overflow-y: auto; display: none;">
+                            <div style="font-size: 7px; color: #888; margin-bottom: 4px;">📚 Imported Models</div>
+                            <div id="glbImportedListContent" style="display: flex; flex-direction: column; gap: 2px;"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">

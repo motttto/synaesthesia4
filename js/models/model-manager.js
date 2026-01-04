@@ -734,3 +734,74 @@ export function getCurrentModel() {
 export function getModelMaterials() {
     return modelState.modelMaterials;
 }
+
+// ============================================
+// CUSTOM MODEL LOADING
+// ============================================
+
+/**
+ * Load a custom GLB model directly into the main scene
+ * @param {Object} gltf - The loaded GLTF object
+ * @param {string} name - The model name for identification
+ */
+export async function loadCustomModel(gltf, name) {
+    console.log(`Loading custom model: ${name}`);
+    
+    // Cleanup old model
+    if (modelState.currentModel) {
+        scene.remove(modelState.currentModel);
+        cleanupModelMaps(modelState.currentModel);
+    }
+    
+    // Clone the model scene
+    const newModel = gltf.scene.clone();
+    
+    // Store materials for color application
+    modelState.modelMaterials.length = 0;
+    newModel.traverse((child) => {
+        if (child.isMesh && child.material) {
+            child.material = child.material.clone();
+            // Ensure material can receive color
+            if (!child.material.color) {
+                child.material.color = new THREE.Color(0xffffff);
+            }
+            if (!child.material.emissive) {
+                child.material.emissive = new THREE.Color(0x000000);
+            }
+            child.material.emissiveIntensity = 0.3;
+            modelState.modelMaterials.push(child.material);
+        }
+    });
+    
+    // Center and scale
+    const box = new THREE.Box3().setFromObject(newModel);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const baseScale = 2.0 / maxDim; // Normalize to size ~2
+    
+    newModel.position.sub(center);
+    newModel.scale.setScalar(baseScale * modelState.currentScale);
+    
+    // Store original geometry for effects
+    storeOriginalGeometry(newModel);
+    
+    // Add to scene
+    scene.add(newModel);
+    
+    // Update state
+    modelState.currentModel = newModel;
+    modelState.currentInterval = -1; // -1 indicates custom model
+    modelState.customModelName = name;
+    
+    // Set visibility
+    newModel.visible = modelState.modelVisible;
+    
+    // Notify refresh callbacks
+    if (refreshVisualsCallback) {
+        refreshVisualsCallback();
+    }
+    
+    console.log(`Custom model loaded: ${name}`);
+    return newModel;
+}
