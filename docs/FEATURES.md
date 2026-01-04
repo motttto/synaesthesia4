@@ -356,7 +356,36 @@ Vorproduzierte Bilder für flüssige Übergänge:
 | **Port** | 9876 (default) |
 | **Client** | stream-client.html |
 
-### 7.2 Kompatible Software
+### 7.2 DMX Output
+
+Lichtsteuerung über verschiedene Protokolle:
+
+| Protokoll | Beschreibung |
+|-----------|-------------|
+| **Art-Net** | UDP-basiert, Netzwerk (Port 6454) |
+| **sACN / E1.31** | Multicast, professioneller Standard |
+| **USB Serial** | Enttec Open DMX, DMXKing etc. |
+
+**Features:**
+- Master Dimmer (0-255)
+- Blackout-Funktion
+- Color Source: Clara, Alex, oder Manual
+- Audio → Dimmer Mapping
+- Beat → Strobe Mapping
+- Fixture-Management mit Presets
+
+**Fixture Presets:**
+
+| Preset | Kanäle | Beschreibung |
+|--------|--------|-------------|
+| RGB | 3 | RGB Par |
+| RGBW | 4 | RGBW Par |
+| RGBWD | 5 | RGBW + Dimmer |
+| Dimmer | 1 | Nur Dimmer |
+| Moving Head | 8 | Pan, Tilt, Dimmer, RGB, Strobe |
+| Strobe | 2 | Dimmer + Speed |
+
+### 7.3 Kompatible Software
 
 - OBS Studio (Browser Source)
 - MadMapper
@@ -364,12 +393,9 @@ Vorproduzierte Bilder für flüssige Übergänge:
 - VDMX
 - TouchDesigner
 
-### 7.3 DMX Output (In Arbeit)
+### 7.4 DMX Output (In Arbeit)
 
-Geplante Features:
-- DMX Controller Selection
-- Universe/Channel Mapping
-- Color-to-DMX Conversion
+*Bereits implementiert - siehe 7.2*
 
 ---
 
@@ -461,6 +487,8 @@ synaesthesia_4/
 │   │   └── controls.js      # Orbit, FOV
 │   ├── stream/
 │   │   └── obs-stream.js    # WebSocket
+│   ├── output/
+│   │   └── dmx-output.js    # DMX/Art-Net
 │   ├── ai/
 │   │   └── ai-image.js      # ComfyUI
 │   └── ui/

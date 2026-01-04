@@ -841,6 +841,104 @@
             </div>
         </div>
         
+        <!-- DMX Output -->
+        <div class="panel" id="panelDMX">
+            <h3>
+                <span>💡 DMX Output</span>
+                <span class="header-icons">
+                    <span class="visibility-btn" id="dmxVisibilityBtn" title="Enable/Disable DMX"></span>
+                    <span class="minimize-btn">▼</span>
+                </span>
+            </h3>
+            <div class="panel-content">
+                <!-- Connection -->
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 7px; color: #888;">Protocol</label>
+                    <select id="dmxProtocol" style="margin-top: 2px;">
+                        <option value="artnet">Art-Net (UDP)</option>
+                        <option value="sacn">sACN / E1.31</option>
+                        <option value="serial">USB Serial (Enttec)</option>
+                    </select>
+                </div>
+                
+                <!-- Art-Net Settings -->
+                <div id="dmxArtnetSettings">
+                    <div class="slider-group">
+                        <label>Host IP</label>
+                        <input type="text" id="dmxArtnetHost" value="127.0.0.1" style="width: 100%; font-size: 10px; padding: 4px;">
+                    </div>
+                    <div class="slider-group">
+                        <label>Universe</label>
+                        <div class="slider-row">
+                            <input type="number" id="dmxUniverse" min="0" max="15" value="0" style="width: 60px;">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Serial Settings (hidden by default) -->
+                <div id="dmxSerialSettings" style="display: none;">
+                    <label style="font-size: 7px; color: #888;">Serial Port</label>
+                    <select id="dmxSerialPort" style="margin-top: 2px;">
+                        <option value="">-- Select Port --</option>
+                    </select>
+                </div>
+                
+                <!-- Connect Button -->
+                <button id="dmxConnectBtn" class="reset-btn" style="margin-top: 8px; width: 100%;">🔌 Connect</button>
+                <div id="dmxStatus" style="font-size: 7px; color: #888; margin-top: 4px;">⏹ Not connected</div>
+                
+                <!-- Master Controls -->
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
+                    <div class="slider-group">
+                        <label>Master Dimmer</label>
+                        <div class="slider-row">
+                            <input type="range" id="dmxMasterDimmer" min="0" max="255" value="255">
+                            <span id="dmxMasterValue">255</span>
+                        </div>
+                    </div>
+                    <button id="dmxBlackout" class="reset-btn" style="width: 100%; background: #300;">🚫 Blackout</button>
+                </div>
+                
+                <!-- Color Source -->
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
+                    <label style="font-size: 7px; color: #888;">Color Source</label>
+                    <select id="dmxColorSource" style="margin-top: 2px;">
+                        <option value="clara">Clara (Note Colors)</option>
+                        <option value="alex">Alex (Mode Colors)</option>
+                        <option value="manual">Manual</option>
+                    </select>
+                </div>
+                
+                <!-- Audio Mapping -->
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
+                    <div style="font-size: 7px; color: #888; margin-bottom: 4px;">🎵 Audio Mapping</div>
+                    <div class="interaction-mode">
+                        <label>
+                            <input type="checkbox" id="dmxAudioToDimmer">
+                            Audio → Dimmer
+                        </label>
+                    </div>
+                    <div class="interaction-mode">
+                        <label>
+                            <input type="checkbox" id="dmxBeatToStrobe">
+                            Beat → Strobe
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Fixtures -->
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 7px; color: #888;">Fixtures</span>
+                        <button id="dmxAddFixture" class="reset-btn" style="padding: 2px 6px; font-size: 8px;">➕ Add</button>
+                    </div>
+                    <div id="dmxFixtureList" style="max-height: 100px; overflow-y: auto; background: #111; border-radius: 3px; padding: 4px;">
+                        <div style="color:#666; font-size:9px;">No fixtures added</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Camera Input (USB/Webcam) -->
         <div class="panel" id="panelCameraInput">
             <h3>

@@ -63,6 +63,7 @@ Based on authentic synesthetic perception systems:
 
 ### 📡 Live Performance
 - **WebSocket streaming** (1920×1080 @ 30fps)
+- **DMX output** via Art-Net, sACN, or USB Serial (Enttec)
 - Compatible with MadMapper, OBS, Resolume
 - Stream client for projection mapping
 
@@ -186,6 +187,8 @@ synaesthesia/
 │   │   └── controls.js      # Orbit, FOV, auto-rotate
 │   ├── stream/
 │   │   └── obs-stream.js    # WebSocket streaming
+│   ├── output/
+│   │   └── dmx-output.js    # DMX/Art-Net output
 │   ├── ai/
 │   │   └── ai-image.js      # ComfyUI integration
 │   └── ui/
