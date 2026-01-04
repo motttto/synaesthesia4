@@ -30,6 +30,11 @@ export const avatarState = {
     position: { x: 0, y: -3, z: 0 },
     scale: 3.0,
     
+    // Position Tracking
+    lockPosition: true, // Don't move model based on tracking
+    trackPositionXY: false, // Move model left/right/up/down with tracking
+    trackPositionZ: false, // Move model forward/back with tracking (unreliable)
+    
     // Rotation offset (für Kamera-Ausrichtung)
     rotationOffset: { x: 0, y: Math.PI, z: 0 },
     
@@ -735,6 +740,9 @@ export function updateAvatarPose(deltaTime = 0.016) {
  * Hips Position aus Tracking
  */
 function updateHipsPosition(landmarks) {
+    // Skip position tracking if locked
+    if (avatarState.lockPosition) return;
+    
     const hipsBone = getBone('hips');
     if (!hipsBone) return;
     
@@ -758,15 +766,25 @@ function updateHipsPosition(landmarks) {
         hipX = 1 - hipX;
     }
     
-    const targetX = (hipX - 0.5) * 2 * range;
-    const targetY = avatarState.position.y + (0.5 - hipY) * range;
-    const targetZ = hipZ * range;
-    
     // Smoothing
     const s = avatarState.smoothing;
-    avatarState.model.position.x = avatarState.model.position.x * s + targetX * (1 - s);
-    avatarState.model.position.y = avatarState.model.position.y * s + targetY * (1 - s);
-    avatarState.model.position.z = avatarState.model.position.z * s + targetZ * (1 - s);
+    
+    // XY Position (left/right, up/down)
+    if (avatarState.trackPositionXY) {
+        const targetX = (hipX - 0.5) * 2 * range;
+        const targetY = avatarState.position.y + (0.5 - hipY) * range;
+        
+        avatarState.model.position.x = avatarState.model.position.x * s + targetX * (1 - s);
+        avatarState.model.position.y = avatarState.model.position.y * s + targetY * (1 - s);
+    }
+    
+    // Z Position (forward/back) - usually unreliable from MediaPipe
+    if (avatarState.trackPositionZ) {
+        // Clamp Z to reasonable range
+        const clampedZ = Math.max(-2, Math.min(2, hipZ));
+        const targetZ = clampedZ * range * 0.5;
+        avatarState.model.position.z = avatarState.model.position.z * s + targetZ * (1 - s);
+    }
 }
 
 /**
@@ -1024,7 +1042,10 @@ export function setAvatarScale(scale) {
 
 export function setAvatarPosition(x, y, z) {
     avatarState.position = { x, y, z };
-    // Position wird in updateAvatarPose angewendet
+    // Bei gelockter Position direkt auf Modell anwenden
+    if (avatarState.lockPosition && avatarState.model) {
+        avatarState.model.position.set(x, y, z);
+    }
 }
 
 export function setAvatarMirror(mirror) {
@@ -1171,6 +1192,15 @@ export function initAvatarUI() {
         mirrorCheckbox.checked = avatarState.mirror;
         mirrorCheckbox.addEventListener('change', (e) => {
             setAvatarMirror(e.target.checked);
+        });
+    }
+    
+    // Lock Position Checkbox
+    const lockPositionCheckbox = document.getElementById('avatarLockPosition');
+    if (lockPositionCheckbox) {
+        lockPositionCheckbox.checked = avatarState.lockPosition;
+        lockPositionCheckbox.addEventListener('change', (e) => {
+            avatarState.lockPosition = e.target.checked;
         });
     }
     
