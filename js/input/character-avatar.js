@@ -36,7 +36,8 @@ export const avatarState = {
     trackPositionZ: false, // Move model forward/back with tracking (unreliable)
     
     // Rotation offset (für Kamera-Ausrichtung)
-    rotationOffset: { x: 0, y: Math.PI, z: 0 },
+    // Note: Blender models often need different rotation than Mixamo
+    rotationOffset: { x: 0, y: 0, z: 0 },
     
     // Mirror (wenn Kamera gespiegelt)
     mirror: true,
@@ -1241,6 +1242,63 @@ export function initAvatarUI() {
             setAvatarPosition(avatarState.position.x, y, avatarState.position.z);
             const display = document.getElementById('avatarPositionYValue');
             if (display) display.textContent = y.toFixed(1);
+        });
+    }
+    
+    // Rotation Y Slider
+    const rotYSlider = document.getElementById('avatarRotationY');
+    if (rotYSlider) {
+        rotYSlider.value = (avatarState.rotationOffset.y * 180 / Math.PI) % 360;
+        rotYSlider.addEventListener('input', (e) => {
+            const deg = parseFloat(e.target.value);
+            const rad = deg * Math.PI / 180;
+            avatarState.rotationOffset.y = rad;
+            if (avatarState.model) {
+                avatarState.model.rotation.y = rad;
+            }
+            const display = document.getElementById('avatarRotationYValue');
+            if (display) display.textContent = deg + '°';
+        });
+    }
+    
+    // Flip X Button (upside-down fix)
+    const flipXBtn = document.getElementById('avatarFlipX');
+    if (flipXBtn) {
+        flipXBtn.addEventListener('click', () => {
+            avatarState.rotationOffset.x += Math.PI;
+            if (avatarState.model) {
+                avatarState.model.rotation.x = avatarState.rotationOffset.x;
+            }
+            console.log('[Avatar] Flipped X, rotation:', avatarState.rotationOffset);
+        });
+    }
+    
+    // Flip Z Button (front/back)
+    const flipZBtn = document.getElementById('avatarFlipZ');
+    if (flipZBtn) {
+        flipZBtn.addEventListener('click', () => {
+            avatarState.rotationOffset.z += Math.PI;
+            if (avatarState.model) {
+                avatarState.model.rotation.z = avatarState.rotationOffset.z;
+            }
+            console.log('[Avatar] Flipped Z, rotation:', avatarState.rotationOffset);
+        });
+    }
+    
+    // Reset Rotation Button
+    const resetRotBtn = document.getElementById('avatarResetRot');
+    if (resetRotBtn) {
+        resetRotBtn.addEventListener('click', () => {
+            avatarState.rotationOffset = { x: 0, y: 0, z: 0 };
+            if (avatarState.model) {
+                avatarState.model.rotation.set(0, 0, 0);
+            }
+            // Update Y slider
+            const rotYSlider = document.getElementById('avatarRotationY');
+            const rotYDisplay = document.getElementById('avatarRotationYValue');
+            if (rotYSlider) rotYSlider.value = 0;
+            if (rotYDisplay) rotYDisplay.textContent = '0°';
+            console.log('[Avatar] Rotation reset');
         });
     }
     
