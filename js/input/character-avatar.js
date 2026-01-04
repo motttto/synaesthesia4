@@ -119,6 +119,34 @@ const RIG_MAPPINGS = {
         }
     },
     
+    // Blender default with L/R suffix (no separator)
+    // Used by: male_base_mesh.glb and many Blender exports
+    blenderLR: {
+        detect: ['spine', 'spine001', 'upper_armL', 'thighL'],
+        bones: {
+            hips: 'spine',           // Root bone is called "spine" in this rig
+            spine: 'spine001',
+            spine1: 'spine002',
+            spine2: 'spine003',
+            neck: 'spine004',
+            head: 'spine005',
+            leftShoulder: 'shoulderL',
+            leftArm: 'upper_armL',
+            leftForeArm: 'forearmL',
+            leftHand: 'handL',
+            rightShoulder: 'shoulderR',
+            rightArm: 'upper_armR',
+            rightForeArm: 'forearmR',
+            rightHand: 'handR',
+            leftUpLeg: 'thighL',
+            leftLeg: 'shinL',
+            leftFoot: 'footL',
+            rightUpLeg: 'thighR',
+            rightLeg: 'shinR',
+            rightFoot: 'footR'
+        }
+    },
+    
     // Quaternius / Blender standard
     quaternius: {
         detect: ['Hips', 'Spine', 'UpperArm'],
@@ -202,7 +230,7 @@ const RIG_MAPPINGS = {
     
     // Blender Rigify
     rigify: {
-        detect: ['spine', 'spine.001', 'upper_arm'],
+        detect: ['spine', 'spine.001', 'upper_arm.L'],
         bones: {
             hips: 'spine',
             spine: 'spine.001',
